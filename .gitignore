@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist_electron/
+Aplikasi_Desktop/
+*.xlsx
+*.lnk
+build-verification.log
