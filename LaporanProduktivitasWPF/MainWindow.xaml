@@ -1,0 +1,453 @@
+<Window x:Class="LaporanProduktivitasWPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:LaporanProduktivitasWPF.ViewModels"
+        mc:Ignorable="d"
+        Title="Laporan Produktivitas Admin - WPF Desktop Studio" 
+        Height="820" Width="1280"
+        MinHeight="650" MinWidth="950"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgDarkBrush}"
+        Foreground="{StaticResource TextLightBrush}">
+
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- 0: Top Header -->
+            <RowDefinition Height="Auto" />
+            <!-- 1: Navigation Tabs -->
+            <RowDefinition Height="Auto" />
+            <!-- 2: Main Content Area -->
+            <RowDefinition Height="*" />
+            <!-- 3: Status Bar -->
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ROW 0: TOP HEADER BAR -->
+        <Border Grid.Row="0" Background="{StaticResource CardDarkBrush}" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1" Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: App Logo & Title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="{StaticResource BrandPrimaryBrush}" CornerRadius="8" Width="36" Height="36" Margin="0,0,12,0">
+                        <TextBlock Text="📊" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Laporan Produktivitas Admin" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
+                            <Border Background="#1E1B4B" BorderBrush="{StaticResource BrandSecondaryBrush}" BorderThickness="1" CornerRadius="10" Margin="8,0,0,0" Padding="6,1">
+                                <TextBlock Text="WPF Studio Native" FontSize="10" FontWeight="Bold" Foreground="#A5B4FC" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="Kalkulasi Otomatis No. Invoice per User, Tanggal, Jam Kerja &amp; Akurasi" FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Right: Actions -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Sheet Selector -->
+                    <TextBlock Text="Sheet:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource TextMutedBrush}" FontSize="12" />
+                    <ComboBox ItemsSource="{Binding SheetNames}" SelectedItem="{Binding ActiveSheet, Mode=TwoWay}"
+                              Width="130" Margin="0,0,12,0" VerticalAlignment="Center" Height="28" />
+
+                    <!-- Buka File Button -->
+                    <Button Content="📁 Buka File Excel" Command="{Binding OpenFileCommand}" 
+                            Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
+
+                    <!-- Coba Data Contoh -->
+                    <Button Content="✨ Data Contoh" Command="{Binding LoadSampleCommand}" 
+                            Style="{StaticResource ModernButton}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ROW 1: NAVIGATION TABS -->
+        <Border Grid.Row="1" Background="#090E17" Padding="16,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1">
+            <Grid>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="📊 Dashboard" Command="{Binding SwitchTabCommand}" CommandParameter="dashboard"
+                            Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
+                    <Button Content="📁 Import File" Command="{Binding SwitchTabCommand}" CommandParameter="import"
+                            Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
+                    <Button Content="📋 Tabel Pivot Detail" Command="{Binding SwitchTabCommand}" CommandParameter="exact"
+                            Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
+                    <Button Content="⏱️ Kinerja &amp; Absensi" Command="{Binding SwitchTabCommand}" CommandParameter="evaluasi"
+                            Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
+                    <Button Content="👥 Admin Invoice" Command="{Binding SwitchTabCommand}" CommandParameter="evaluasiInvoice"
+                            Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
+                    <Button Content="⚙️ Custom Pivot" Command="{Binding SwitchTabCommand}" CommandParameter="custom"
+                            Style="{StaticResource ModernButton}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="File Aktif: " Foreground="{StaticResource TextMutedBrush}" FontSize="11" />
+                    <TextBlock Text="{Binding FileName}" FontWeight="Bold" Foreground="{StaticResource BrandPrimaryBrush}" FontSize="11" Margin="0,0,8,0" />
+                    <TextBlock Text="(" Foreground="{StaticResource TextMutedBrush}" FontSize="11" />
+                    <TextBlock Text="{Binding RowCount, StringFormat='{}{0:N0} baris'}" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" FontSize="11" />
+                    <TextBlock Text=")" Foreground="{StaticResource TextMutedBrush}" FontSize="11" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ROW 2: MAIN CONTENT AREA -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="20">
+            <Grid>
+                <!-- 1. DASHBOARD VIEW -->
+                <StackPanel Visibility="{Binding IsDashboardActive, Converter={StaticResource BoolToVis}}">
+                    <!-- Hero Banner -->
+                    <Border Background="#030712" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="16" Padding="24" Margin="0,0,0,20">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <Border Background="#1E3A8A" CornerRadius="10" Padding="8,3" HorizontalAlignment="Left" Margin="0,0,0,8">
+                                    <TextBlock Text="● RINGKASAN PRODUKTIVITAS" Foreground="#93C5FD" FontSize="11" FontWeight="Bold" />
+                                </Border>
+                                <TextBlock Text="Pantau Ritme Kerja Tim Fakturis" FontSize="26" FontWeight="ExtraBold" Foreground="#FFFFFF" Margin="0,0,0,6" />
+                                <TextBlock Text="Gambaran cepat performa volume nota, tingkat akurasi, dan tren harian admin dari data Excel aktif." 
+                                           FontSize="13" Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+                                <Border BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1,0,0,0" Padding="16,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="PERIODE TANGGAL" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                        <TextBlock Text="{Binding LatestDate, StringFormat='{}s/d {0}'}" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Top 4 KPI Cards -->
+                    <UniformGrid Columns="4" Margin="0,0,0,20">
+                        <!-- Card 1: Grand Total -->
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,10,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="GRAND TOTAL NOTA" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding GrandTotalCalculated, StringFormat='{}{0:N0}'}" FontSize="28" FontWeight="ExtraBold" Foreground="{StaticResource BrandPrimaryBrush}" Margin="0,6,0,2" />
+                                <TextBlock Text="Total nomor invoice unik" FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 2: Top Performer -->
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,10,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="TOP ADMIN PERFORMER" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding TopUserName}" FontSize="22" FontWeight="ExtraBold" Foreground="{StaticResource AmberBrush}" Margin="0,6,0,2" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding TopUserTotal, StringFormat='{}{0:N0} invoice'}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 3: Jumlah Admin -->
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,10,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="JUMLAH ADMIN AKTIF" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding UniqueUsersCount, StringFormat='{}{0} Admin'}" FontSize="28" FontWeight="ExtraBold" Foreground="{StaticResource BrandSecondaryBrush}" Margin="0,6,0,2" />
+                                <TextBlock Text="{Binding AvgPerUser, StringFormat='{}Rata-rata: {0} nota/admin'}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 4: Total Hari Kerja -->
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="16" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="TOTAL HARI / PERIODE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding UniqueDatesCount, StringFormat='{}{0} Hari'}" FontSize="28" FontWeight="ExtraBold" Foreground="{StaticResource EmeraldBrush}" Margin="0,6,0,2" />
+                                <TextBlock Text="{Binding AvgPerDate, StringFormat='{}Rata-rata: {0} nota/hari'}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- Top 10 Admin Volume Graph -->
+                    <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="20" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="10 Admin Teratas Berdasarkan Jumlah Nota" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" Margin="0,0,0,16" />
+                            <ItemsControl ItemsSource="{Binding TopUsersChart}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="110" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Label}" FontWeight="Bold" VerticalAlignment="Center" Foreground="{StaticResource TextLightBrush}" />
+                                            <ProgressBar Grid.Column="1" Value="{Binding Percentage}" Maximum="100" Height="16" VerticalAlignment="Center" 
+                                                         Foreground="{StaticResource BrandPrimaryBrush}" Background="#0F172A" BorderThickness="0" Margin="0,0,12,0" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Value, StringFormat='{}{0:N0} Nota'}" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- 2. IMPORT FILE VIEW -->
+                <StackPanel Visibility="{Binding IsImportActive, Converter={StaticResource BoolToVis}}" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="600" Margin="0,40">
+                    <Border Background="{StaticResource CardDarkBrush}" CornerRadius="16" Padding="40" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="2">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="📂" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,16" />
+                            <TextBlock Text="Pilih File Laporan Excel (.xlsx)" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{StaticResource TextLightBrush}" Margin="0,0,0,8" />
+                            <TextBlock Text="Aplikasi ini membaca data Excel langsung dengan performa tinggi tanpa perlu instalasi Microsoft Office." 
+                                       FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,24" />
+
+                            <Button Content="Cari &amp; Buka File Excel..." Command="{Binding OpenFileCommand}" Style="{StaticResource PrimaryButton}" Height="40" FontSize="14" Margin="0,0,0,12" />
+                            <Button Content="Gunakan Data Contoh Demo" Command="{Binding LoadSampleCommand}" Style="{StaticResource ModernButton}" Height="36" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- 3. TABEL PIVOT DETAIL VIEW -->
+                <StackPanel Visibility="{Binding IsExactActive, Converter={StaticResource BoolToVis}}">
+                    <!-- Filters Bar -->
+                    <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="14" Margin="0,0,0,14" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Tanggal Filter -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Tanggal:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource TextMutedBrush}" />
+                                <ComboBox ItemsSource="{Binding AvailableDates}" SelectedItem="{Binding SelectedDate, Mode=TwoWay}" Width="130" Height="28" />
+                            </StackPanel>
+
+                            <!-- User Filter -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Admin:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource TextMutedBrush}" />
+                                <ComboBox ItemsSource="{Binding AvailableUsers}" SelectedItem="{Binding SelectedUser, Mode=TwoWay}" Width="130" Height="28" />
+                            </StackPanel>
+
+                            <!-- Jenis B Filter -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Jenis:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource TextMutedBrush}" />
+                                <ComboBox ItemsSource="{Binding AvailableJenisB}" SelectedItem="{Binding SelectedJenisB, Mode=TwoWay}" Width="110" Height="28" />
+                            </StackPanel>
+
+                            <!-- Search Filter -->
+                            <TextBox Grid.Column="3" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" 
+                                     Height="28" VerticalContentAlignment="Center" Padding="6,0" Margin="0,0,16,0" />
+
+                            <!-- Export CSV -->
+                            <Button Grid.Column="4" Content="📥 Export CSV" Command="{Binding ExportExactCommand}" Style="{StaticResource SuccessButton}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Exact DataGrid -->
+                    <DataGrid ItemsSource="{Binding ExactPivotItems}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              IsReadOnly="True" MaxHeight="520" Background="{StaticResource CardDarkBrush}"
+                              Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
+                              AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column"
+                              BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1"
+                              EnableRowVirtualization="True" EnableColumnVirtualization="True"
+                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                              ScrollViewer.CanContentScroll="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="No" Binding="{Binding No}" Width="50" />
+                            <DataGridTextColumn Header="NMPG (Sales / Pegawai)" Binding="{Binding NMPG}" Width="280" />
+                            <DataGridTextColumn Header="NOINV (No Nota)" Binding="{Binding NOINV}" Width="180" />
+                            <DataGridTextColumn Header="KDPRC" Binding="{Binding KDPRC}" Width="90" />
+                            <DataGridTextColumn Header="USID" Binding="{Binding USID}" Width="90" />
+                            <DataGridTextColumn Header="Count JMDOS" Binding="{Binding CountJMDOS}" Width="110" />
+                            <DataGridTextColumn Header="Sum of NETTO (Rp)" Binding="{Binding SumNetto, StringFormat='{}{0:N2}'}" Width="160" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Summary Bottom Bar -->
+                    <Border Background="#090E17" CornerRadius="8" Padding="14" Margin="0,10,0,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock Text="Total Nota: " Foreground="{StaticResource TextMutedBrush}" />
+                            <TextBlock Text="{Binding TotalNota, StringFormat='{}{0:N0} Nota'}" FontWeight="Bold" Foreground="{StaticResource BrandPrimaryBrush}" Margin="0,0,24,0" />
+                            <TextBlock Text="Count JMDOS: " Foreground="{StaticResource TextMutedBrush}" />
+                            <TextBlock Text="{Binding TotalCountJMDOS, StringFormat='{}{0:N0}'}" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" Margin="0,0,24,0" />
+                            <TextBlock Text="Total Netto: " Foreground="{StaticResource TextMutedBrush}" />
+                            <TextBlock Text="{Binding TotalSumNetto, StringFormat='{}Rp {0:N2}'}" FontWeight="Bold" Foreground="{StaticResource EmeraldBrush}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- 4. KINERJA & ABSENSI VIEW -->
+                <StackPanel Visibility="{Binding IsEvaluasiActive, Converter={StaticResource BoolToVis}}">
+                    <!-- Top Action Banner -->
+                    <Border Background="#1E1B4B" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="{StaticResource BrandSecondaryBrush}" BorderThickness="1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Monitoring Kinerja &amp; Jam Kerja Admin" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" />
+                                <TextBlock Text="Ketik langsung jumlah Nota Salah, Jam Datang, dan Jam Pulang pada tabel. Data tersimpan otomatis." 
+                                           FontSize="11" Foreground="#C7D2FE" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="⚡ Isi Jam Standar (08-17)" Command="{Binding ApplyDefaultHoursCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
+                                <Button Content="📥 Export CSV" Command="{Binding ExportEvaluasiCommand}" Style="{StaticResource SuccessButton}" Margin="0,0,8,0" />
+                                <Button Content="🔄 Reset Input" Command="{Binding ResetInputsCommand}" Style="{StaticResource ModernButton}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 5 KPI Cards -->
+                    <UniformGrid Columns="5" Margin="0,0,0,16">
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="12" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="TOTAL NOTA" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding EvalTotalNota, StringFormat='{}{0:N0}'}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource BrandPrimaryBrush}" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="12" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="NOTA SALAH" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding EvalTotalSalah, StringFormat='{}{0:N0}'}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource RoseBrush}" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="12" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="TINGKAT AKURASI" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding EvalOverallAkurasi, StringFormat='{}{0:F1}%'}" FontSize="22" FontWeight="Bold" Foreground="{StaticResource EmeraldBrush}" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="12" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="TOTAL JAM KERJA" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding EvalTotalJamText}" FontSize="18" FontWeight="Bold" Foreground="#38BDF8" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="12" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="ADMIN &amp; HARI" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding EvalUserCount, StringFormat='{}{0} Admin / '}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" Margin="0,6,0,0">
+                                    <Bold><Run Text="{Binding EvalDateCount, Mode=OneWay}" /><Run Text=" Hari" /></Bold>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- Filter Bar -->
+                    <Border Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="10" Margin="0,0,0,12" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Tanggal:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource TextMutedBrush}" />
+                            <ComboBox ItemsSource="{Binding EvalAvailableDates}" SelectedItem="{Binding EvalSelectedDate, Mode=TwoWay}" Width="130" Height="26" Margin="0,0,16,0" />
+                            <TextBlock Text="Admin:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource TextMutedBrush}" />
+                            <ComboBox ItemsSource="{Binding EvalAvailableUsers}" SelectedItem="{Binding EvalSelectedUser, Mode=TwoWay}" Width="130" Height="26" Margin="0,0,16,0" />
+                            <TextBlock Text="Cari:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource TextMutedBrush}" />
+                            <TextBox Text="{Binding EvalSearchQuery, UpdateSourceTrigger=PropertyChanged}" Width="200" Height="26" VerticalContentAlignment="Center" Padding="4,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Evaluasi DataGrid -->
+                    <DataGrid ItemsSource="{Binding EvaluasiItems}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              MaxHeight="480" Background="{StaticResource CardDarkBrush}"
+                              Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
+                              AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column"
+                              BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1"
+                              EnableRowVirtualization="True" EnableColumnVirtualization="True"
+                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                              ScrollViewer.CanContentScroll="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="No" Binding="{Binding No}" IsReadOnly="True" Width="45" />
+                            <DataGridTextColumn Header="Tanggal" Binding="{Binding Tanggal}" IsReadOnly="True" Width="100" />
+                            <DataGridTextColumn Header="User Fakturis" Binding="{Binding User}" IsReadOnly="True" Width="140" />
+                            <DataGridTextColumn Header="Nota Dibuat" Binding="{Binding TotalNota}" IsReadOnly="True" Width="95" />
+                            <DataGridTextColumn Header="✏️ Nota Salah" Binding="{Binding NotaSalah, UpdateSourceTrigger=LostFocus}" Width="100" />
+                            <DataGridTextColumn Header="Akurasi (%)" Binding="{Binding Akurasi, StringFormat='{}{0:F1}%'}" IsReadOnly="True" Width="90" />
+                            <DataGridTextColumn Header="✏️ Datang" Binding="{Binding JamDatang, UpdateSourceTrigger=LostFocus}" Width="90" />
+                            <DataGridTextColumn Header="✏️ Pulang" Binding="{Binding JamPulang, UpdateSourceTrigger=LostFocus}" Width="90" />
+                            <DataGridTextColumn Header="Durasi" Binding="{Binding DurasiText}" IsReadOnly="True" Width="120" />
+                            <DataGridTextColumn Header="✏️ Catatan / Keterangan" Binding="{Binding Keterangan, UpdateSourceTrigger=LostFocus}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+
+                <!-- 5. ADMIN INVOICE VIEW -->
+                <StackPanel Visibility="{Binding IsEvaluasiInvoiceActive, Converter={StaticResource BoolToVis}}">
+                    <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="20" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="Ringkasan Performa Tim Admin Invoice" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
+                            <TextBlock Text="{Binding AdminInvoiceTotalNota, StringFormat='{}Perhitungan berbasis {0:N0} nota yang dibuat oleh grup fakturis (AKBAR, DIDIN, JOE, RONI, NOVIANI).'}" 
+                                       FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,16" />
+
+                            <DataGrid ItemsSource="{Binding AdminInvoiceMetrics}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                      IsReadOnly="True" Background="{StaticResource CardDarkBrush}"
+                                      Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
+                                      AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
+                                      HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="User Fakturis" Binding="{Binding User}" Width="160" />
+                                    <DataGridTextColumn Header="Total Nota" Binding="{Binding TotalNota, StringFormat='{}{0:N0}'}" Width="120" />
+                                    <DataGridTextColumn Header="Total Salah" Binding="{Binding TotalSalah, StringFormat='{}{0:N0}'}" Width="120" />
+                                    <DataGridTextColumn Header="Error / Total Tim (%)" Binding="{Binding SalahPercentage, StringFormat='{}{0:F1}%'}" Width="160" />
+                                    <DataGridTextColumn Header="Rata-rata Nota / Hari Kerja" Binding="{Binding AverageNotaPerDay, StringFormat='{}{0:F1} nota'}" Width="190" />
+                                    <DataGridTextColumn Header="Kontribusi ke Total Tim (%)" Binding="{Binding ContributionPercentage, StringFormat='{}{0:F1}%'}" Width="180" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- 6. CUSTOM PIVOT VIEW -->
+                <StackPanel Visibility="{Binding IsCustomActive, Converter={StaticResource BoolToVis}}">
+                    <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="20" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="Konfigurasi Dimensi &amp; Rumus Pivot Dinamis" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" Margin="0,0,0,16" />
+                            <UniformGrid Columns="4" Margin="0,0,0,20">
+                                <StackPanel Margin="0,0,10,0">
+                                    <TextBlock Text="Field Baris (User/Admin):" Margin="0,0,0,6" Foreground="{StaticResource TextMutedBrush}" />
+                                    <ComboBox ItemsSource="{Binding AvailableHeaders}" SelectedItem="{Binding CustomRowField, Mode=TwoWay}" Height="28" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,10,0">
+                                    <TextBlock Text="Field Kolom (Tanggal):" Margin="0,0,0,6" Foreground="{StaticResource TextMutedBrush}" />
+                                    <ComboBox ItemsSource="{Binding AvailableHeaders}" SelectedItem="{Binding CustomColField, Mode=TwoWay}" Height="28" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,10,0">
+                                    <TextBlock Text="Field Nilai (NoInv):" Margin="0,0,0,6" Foreground="{StaticResource TextMutedBrush}" />
+                                    <ComboBox ItemsSource="{Binding AvailableHeaders}" SelectedItem="{Binding CustomValField, Mode=TwoWay}" Height="28" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Rumus Agregasi:" Margin="0,0,0,6" Foreground="{StaticResource TextMutedBrush}" />
+                                    <ComboBox SelectedValue="{Binding CustomAggType, Mode=TwoWay}" SelectedValuePath="Tag" Height="28">
+                                        <ComboBoxItem Content="DISTINCT COUNT" Tag="DISTINCT_COUNT" IsSelected="True" />
+                                        <ComboBoxItem Content="COUNT" Tag="COUNT" />
+                                        <ComboBoxItem Content="SUM" Tag="SUM" />
+                                        <ComboBoxItem Content="AVG" Tag="AVG" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <Button Content="✨ Terapkan Preset Otomatis (NoInv per User &amp; Tanggal)" 
+                                    Command="{Binding ApplyPresetCommand}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Height="36" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- ROW 3: STATUS BAR -->
+        <Border Grid.Row="3" Background="#0B1120" Padding="16,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,1,0,0">
+            <Grid>
+                <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" />
+                <TextBlock Text="Laporan Produktivitas Admin • .NET 8 WPF Studio" HorizontalAlignment="Right" Foreground="#475569" FontSize="11" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
+

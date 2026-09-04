@@ -1,7 +1,13 @@
-node_modules/
-dist/
-dist_electron/
-Aplikasi_Desktop/
-*.xlsx
+# Build outputs
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+
+# System files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 *.lnk
-build-verification.log
