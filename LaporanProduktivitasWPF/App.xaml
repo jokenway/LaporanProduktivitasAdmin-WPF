@@ -76,5 +76,47 @@
             <Setter Property="BorderBrush" Value="{StaticResource EmeraldBrush}" />
             <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
+
+        <!-- DataGrid Column Header Styles -->
+        <Style x:Key="TableHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Foreground" Value="#0F172A" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+        </Style>
+
+        <!-- Rose Header Style: for editable "Nota Salah" column -->
+        <Style x:Key="RoseHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#FFF1F2" />
+            <Setter Property="Foreground" Value="#9F1239" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="BorderBrush" Value="#FDA4AF" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+        </Style>
+
+        <!-- Amber Header Style: for editable "Jam Datang" and "Jam Pulang" columns -->
+        <Style x:Key="AmberHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#FFFBEB" />
+            <Setter Property="Foreground" Value="#92400E" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="BorderBrush" Value="#FCD34D" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+        </Style>
+
+        <!-- DataGrid Row / Cell Styles -->
+        <Style TargetType="DataGridRow">
+            <Setter Property="Foreground" Value="{StaticResource TextLightBrush}" />
+        </Style>
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="4,2" />
+        </Style>
     </Application.Resources>
 </Application>

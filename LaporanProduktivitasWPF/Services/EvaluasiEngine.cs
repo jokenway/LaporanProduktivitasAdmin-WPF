@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using LaporanProduktivitasWPF.Models;
@@ -161,22 +161,21 @@ namespace LaporanProduktivitasWPF.Services
 
             // Apply filters
             string q = (searchQuery ?? "").Trim().ToLowerInvariant();
+            bool isInvoiceGroup = string.Equals(userGroup, "ADMIN_INVOICE", StringComparison.OrdinalIgnoreCase);
 
             var filtered = allRecords.Where(rec =>
             {
+                // When ADMIN_INVOICE group: always restrict to those 5 users
+                if (isInvoiceGroup && !ADMIN_INVOICE_USERS.Contains(rec.User)) return false;
+
                 if (!string.IsNullOrEmpty(selectedDate) && selectedDate != "ALL" && !string.Equals(rec.Tanggal, selectedDate, StringComparison.OrdinalIgnoreCase))
                     return false;
 
-                if (!string.IsNullOrEmpty(selectedUser) && selectedUser != "ALL")
+                if (!string.IsNullOrEmpty(selectedUser) && selectedUser != "ALL" &&
+                    !string.Equals(selectedUser, "ADMIN_INVOICE", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (string.Equals(selectedUser, "ADMIN_INVOICE", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (!ADMIN_INVOICE_USERS.Contains(rec.User)) return false;
-                    }
-                    else if (!string.Equals(rec.User, selectedUser, StringComparison.OrdinalIgnoreCase))
-                    {
+                    if (!string.Equals(rec.User, selectedUser, StringComparison.OrdinalIgnoreCase))
                         return false;
-                    }
                 }
 
                 if (!string.IsNullOrEmpty(q))

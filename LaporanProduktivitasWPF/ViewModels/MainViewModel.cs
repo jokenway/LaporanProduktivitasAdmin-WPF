@@ -141,6 +141,16 @@ namespace LaporanProduktivitasWPF.ViewModels
         private double _totalSumNetto;
         public double TotalSumNetto { get { return _totalSumNetto; } set { _totalSumNetto = value; OnPropertyChanged("TotalSumNetto"); } }
 
+        private int _grandTotalAllNota;
+        public int GrandTotalAllNota { get { return _grandTotalAllNota; } set { _grandTotalAllNota = value; OnPropertyChanged("GrandTotalAllNota"); } }
+
+        private ObservableCollection<UserNotaSummary> _exactUserSummaryItems = new ObservableCollection<UserNotaSummary>();
+        public ObservableCollection<UserNotaSummary> ExactUserSummaryItems
+        {
+            get { return _exactUserSummaryItems; }
+            set { _exactUserSummaryItems = value; OnPropertyChanged("ExactUserSummaryItems"); }
+        }
+
         // Dashboard stats
         private int _grandTotalCalculated;
         public int GrandTotalCalculated { get { return _grandTotalCalculated; } set { _grandTotalCalculated = value; OnPropertyChanged("GrandTotalCalculated"); } }
@@ -263,6 +273,7 @@ namespace LaporanProduktivitasWPF.ViewModels
             AvailableUsers = new ObservableCollection<string>();
             AvailableJenisB = new ObservableCollection<string>();
             ExactPivotItems = new ObservableCollection<ExactPivotItem>();
+            ExactUserSummaryItems = new ObservableCollection<UserNotaSummary>();
 
             TopUsersChart = new ObservableCollection<ChartBarItem>();
 
@@ -432,6 +443,45 @@ namespace LaporanProduktivitasWPF.ViewModels
             TotalNota = res.TotalNota;
             TotalCountJMDOS = res.TotalCountJMDOS;
             TotalSumNetto = res.TotalSumNetto;
+
+            // Build per-user summary (always use grand UserStats for TotalNotaAll)
+            GrandTotalAllNota = res.GrandTotalNotaKeseluruhan;
+            var filteredUserTotals = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var it in res.Items)
+            {
+                if (!string.IsNullOrEmpty(it.USID))
+                {
+                    if (!filteredUserTotals.ContainsKey(it.USID)) filteredUserTotals[it.USID] = 0;
+                    // CountJMDOS is per invoice-group row; for nota count we count items per user
+                }
+            }
+            // Count unique NOINV per USID from filtered items
+            var filteredNotaPerUser = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var it in res.Items)
+            {
+                if (!string.IsNullOrEmpty(it.USID))
+                {
+                    if (!filteredNotaPerUser.ContainsKey(it.USID)) filteredNotaPerUser[it.USID] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    if (!string.IsNullOrEmpty(it.NOINV)) filteredNotaPerUser[it.USID].Add(it.NOINV);
+                }
+            }
+
+            var summaryList = res.UserStats
+                .OrderByDescending(kv => kv.Value)
+                .Select(kv =>
+                {
+                    int filteredCount = filteredNotaPerUser.ContainsKey(kv.Key) ? filteredNotaPerUser[kv.Key].Count : 0;
+                    double pct = GrandTotalAllNota > 0 ? Math.Round((double)kv.Value / GrandTotalAllNota * 100.0, 1) : 0.0;
+                    return new UserNotaSummary
+                    {
+                        User = kv.Key,
+                        TotalNotaAll = kv.Value,
+                        TotalNotaFiltered = filteredCount,
+                        ContributionPct = pct
+                    };
+                })
+                .ToList();
+            ExactUserSummaryItems = new ObservableCollection<UserNotaSummary>(summaryList);
         }
 
         private void RefreshDashboard()
@@ -487,14 +537,15 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private void RefreshEvaluasi()
         {
-            string uFilter = IsEvaluasiInvoiceActive ? "ADMIN_INVOICE" : EvalSelectedUser;
+            // Always filter to ADMIN_INVOICE users only (AKBAR, DIDIN, JOE, RONI, NOVIANI)
+            // EvalSelectedUser can still narrow within that group
             var res = EvaluasiEngine.BuildDailyEvaluation(
                 _currentRows,
                 _manualLogs,
                 EvalSelectedDate,
-                uFilter,
+                EvalSelectedUser,
                 EvalSearchQuery,
-                IsEvaluasiInvoiceActive ? "ADMIN_INVOICE" : "ALL"
+                "ADMIN_INVOICE"
             );
 
             if (EvalAvailableDates.Count != res.AvailableDates.Count + 1)

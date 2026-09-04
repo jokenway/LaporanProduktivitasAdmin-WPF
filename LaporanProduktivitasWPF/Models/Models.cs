@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -190,6 +190,14 @@ namespace LaporanProduktivitasWPF.Models
         public double SalahPercentage { get; set; }
         public double AverageNotaPerDay { get; set; }
         public double ContributionPercentage { get; set; }
+    }
+
+    public class UserNotaSummary
+    {
+        public string User { get; set; }
+        public int TotalNotaAll { get; set; }       // total from full (unfiltered) UserStats
+        public int TotalNotaFiltered { get; set; }  // total in current filter context
+        public double ContributionPct { get; set; } // contribution % vs grand total
     }
 
     public class ChartBarItem

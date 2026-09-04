@@ -83,8 +83,6 @@
                             Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
                     <Button Content="⏱️ Kinerja &amp; Absensi" Command="{Binding SwitchTabCommand}" CommandParameter="evaluasi"
                             Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
-                    <Button Content="👥 Admin Invoice" Command="{Binding SwitchTabCommand}" CommandParameter="evaluasiInvoice"
-                            Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
                     <Button Content="⚙️ Custom Pivot" Command="{Binding SwitchTabCommand}" CommandParameter="custom"
                             Style="{StaticResource ModernButton}" />
                 </StackPanel>
@@ -251,14 +249,15 @@
 
                     <!-- Exact DataGrid -->
                     <DataGrid ItemsSource="{Binding ExactPivotItems}" AutoGenerateColumns="False" CanUserAddRows="False"
-                              IsReadOnly="True" MaxHeight="520" Background="{StaticResource CardDarkBrush}"
+                              IsReadOnly="True" MaxHeight="380" Background="{StaticResource CardDarkBrush}"
                               Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
                               AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
                               HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column"
                               BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1"
                               EnableRowVirtualization="True" EnableColumnVirtualization="True"
                               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                              ScrollViewer.CanContentScroll="True">
+                              ScrollViewer.CanContentScroll="True"
+                              ColumnHeaderStyle="{StaticResource TableHeaderStyle}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="No" Binding="{Binding No}" Width="50" />
                             <DataGridTextColumn Header="NMPG (Sales / Pegawai)" Binding="{Binding NMPG}" Width="280" />
@@ -281,6 +280,31 @@
                             <TextBlock Text="{Binding TotalSumNetto, StringFormat='{}Rp {0:N2}'}" FontWeight="Bold" Foreground="{StaticResource EmeraldBrush}" />
                         </StackPanel>
                     </Border>
+
+                    <!-- Per-User Nota Summary Panel -->
+                    <Border Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="16" Margin="0,14,0,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <TextBlock Text="👤 Total Nota per User" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
+                                <TextBlock Text="{Binding GrandTotalAllNota, StringFormat='{}   |   Grand Total Keseluruhan: {0:N0} Nota'}" FontSize="12" Foreground="{StaticResource BrandPrimaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                            </StackPanel>
+                            <DataGrid ItemsSource="{Binding ExactUserSummaryItems}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                      IsReadOnly="True" MaxHeight="220" Background="{StaticResource CardDarkBrush}"
+                                      Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
+                                      AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
+                                      HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column"
+                                      BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1"
+                                      ColumnHeaderStyle="{StaticResource TableHeaderStyle}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="User (USID)" Binding="{Binding User}" Width="160" />
+                                    <DataGridTextColumn Header="Total Nota (Keseluruhan)" Binding="{Binding TotalNotaAll, StringFormat='{}{0:N0}'}" Width="180" />
+                                    <DataGridTextColumn Header="Total Nota (Filter Aktif)" Binding="{Binding TotalNotaFiltered, StringFormat='{}{0:N0}'}" Width="180" />
+                                    <DataGridTextColumn Header="Kontribusi (%)" Binding="{Binding ContributionPct, StringFormat='{}{0:F1}%'}" Width="130" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
+
                 </StackPanel>
 
                 <!-- 4. KINERJA & ABSENSI VIEW -->
@@ -355,7 +379,7 @@
 
                     <!-- Evaluasi DataGrid -->
                     <DataGrid ItemsSource="{Binding EvaluasiItems}" AutoGenerateColumns="False" CanUserAddRows="False"
-                              MaxHeight="480" Background="{StaticResource CardDarkBrush}"
+                              MaxHeight="360" Background="{StaticResource CardDarkBrush}"
                               Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
                               AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
                               HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column"
@@ -364,33 +388,44 @@
                               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                               ScrollViewer.CanContentScroll="True">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="No" Binding="{Binding No}" IsReadOnly="True" Width="45" />
-                            <DataGridTextColumn Header="Tanggal" Binding="{Binding Tanggal}" IsReadOnly="True" Width="100" />
-                            <DataGridTextColumn Header="User Fakturis" Binding="{Binding User}" IsReadOnly="True" Width="140" />
-                            <DataGridTextColumn Header="Nota Dibuat" Binding="{Binding TotalNota}" IsReadOnly="True" Width="95" />
-                            <DataGridTextColumn Header="✏️ Nota Salah" Binding="{Binding NotaSalah, UpdateSourceTrigger=LostFocus}" Width="100" />
-                            <DataGridTextColumn Header="Akurasi (%)" Binding="{Binding Akurasi, StringFormat='{}{0:F1}%'}" IsReadOnly="True" Width="90" />
-                            <DataGridTextColumn Header="✏️ Datang" Binding="{Binding JamDatang, UpdateSourceTrigger=LostFocus}" Width="90" />
-                            <DataGridTextColumn Header="✏️ Pulang" Binding="{Binding JamPulang, UpdateSourceTrigger=LostFocus}" Width="90" />
-                            <DataGridTextColumn Header="Durasi" Binding="{Binding DurasiText}" IsReadOnly="True" Width="120" />
-                            <DataGridTextColumn Header="✏️ Catatan / Keterangan" Binding="{Binding Keterangan, UpdateSourceTrigger=LostFocus}" Width="*" />
+                            <DataGridTextColumn Header="No" Binding="{Binding No}" IsReadOnly="True" Width="45"
+                                                HeaderStyle="{StaticResource TableHeaderStyle}" />
+                            <DataGridTextColumn Header="Tanggal" Binding="{Binding Tanggal}" IsReadOnly="True" Width="100"
+                                                HeaderStyle="{StaticResource TableHeaderStyle}" />
+                            <DataGridTextColumn Header="User Fakturis" Binding="{Binding User}" IsReadOnly="True" Width="140"
+                                                HeaderStyle="{StaticResource TableHeaderStyle}" />
+                            <DataGridTextColumn Header="Nota Dibuat" Binding="{Binding TotalNota}" IsReadOnly="True" Width="95"
+                                                HeaderStyle="{StaticResource TableHeaderStyle}" />
+                            <DataGridTextColumn Header="✏️ Nota Salah (Input)" Binding="{Binding NotaSalah, UpdateSourceTrigger=LostFocus}" Width="130"
+                                                HeaderStyle="{StaticResource RoseHeaderStyle}" />
+                            <DataGridTextColumn Header="Akurasi (%)" Binding="{Binding Akurasi, StringFormat='{}{0:F1}%'}" IsReadOnly="True" Width="90"
+                                                HeaderStyle="{StaticResource TableHeaderStyle}" />
+                            <DataGridTextColumn Header="✏️ Jam Datang" Binding="{Binding JamDatang, UpdateSourceTrigger=LostFocus}" Width="110"
+                                                HeaderStyle="{StaticResource AmberHeaderStyle}" />
+                            <DataGridTextColumn Header="✏️ Jam Pulang" Binding="{Binding JamPulang, UpdateSourceTrigger=LostFocus}" Width="110"
+                                                HeaderStyle="{StaticResource AmberHeaderStyle}" />
+                            <DataGridTextColumn Header="Durasi" Binding="{Binding DurasiText}" IsReadOnly="True" Width="120"
+                                                HeaderStyle="{StaticResource TableHeaderStyle}" />
+                            <DataGridTextColumn Header="✏️ Catatan / Keterangan" Binding="{Binding Keterangan, UpdateSourceTrigger=LostFocus}" Width="*"
+                                                HeaderStyle="{StaticResource AmberHeaderStyle}" />
                         </DataGrid.Columns>
                     </DataGrid>
-                </StackPanel>
 
-                <!-- 5. ADMIN INVOICE VIEW -->
-                <StackPanel Visibility="{Binding IsEvaluasiInvoiceActive, Converter={StaticResource BoolToVis}}">
-                    <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="20" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" Margin="0,0,0,16">
+                    <!-- Ringkasan Performa Admin Invoice (embedded) -->
+                    <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="20" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" Margin="0,16,0,0">
                         <StackPanel>
-                            <TextBlock Text="Ringkasan Performa Tim Admin Invoice" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
-                            <TextBlock Text="{Binding AdminInvoiceTotalNota, StringFormat='{}Perhitungan berbasis {0:N0} nota yang dibuat oleh grup fakturis (AKBAR, DIDIN, JOE, RONI, NOVIANI).'}" 
-                                       FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,16" />
-
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <TextBlock Text="👥 Ringkasan Performa Tim Fakturis" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
+                                <TextBlock Text="{Binding AdminInvoiceTotalNota, StringFormat='{}   |   Total Nota Tim: {0:N0}'}" FontSize="12" Foreground="{StaticResource BrandPrimaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                <TextBlock Text="  (AKBAR, DIDIN, JOE, RONI, NOVIANI)" FontSize="11" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <DataGrid ItemsSource="{Binding AdminInvoiceMetrics}" AutoGenerateColumns="False" CanUserAddRows="False"
-                                      IsReadOnly="True" Background="{StaticResource CardDarkBrush}"
+                                      IsReadOnly="True" MaxHeight="200" Background="{StaticResource CardDarkBrush}"
                                       Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
                                       AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
-                                      HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column">
+                                      HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column"
+                                      BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1"
+                                      ColumnHeaderStyle="{StaticResource TableHeaderStyle}">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="User Fakturis" Binding="{Binding User}" Width="160" />
                                     <DataGridTextColumn Header="Total Nota" Binding="{Binding TotalNota, StringFormat='{}{0:N0}'}" Width="120" />
@@ -403,6 +438,7 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
+
 
                 <!-- 6. CUSTOM PIVOT VIEW -->
                 <StackPanel Visibility="{Binding IsCustomActive, Converter={StaticResource BoolToVis}}">
