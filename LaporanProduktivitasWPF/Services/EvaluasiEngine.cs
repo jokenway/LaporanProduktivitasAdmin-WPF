@@ -95,7 +95,13 @@ namespace LaporanProduktivitasWPF.Services
             }
 
             result.AvailableDates = dateSet.OrderBy(x => x).ToList();
-            result.AvailableUsers = userSet.OrderBy(x => x).ToList();
+
+            // When ADMIN_INVOICE group: only expose those 5 users in the filter dropdown
+            bool isAdminInvoiceGroup = string.Equals(userGroup, "ADMIN_INVOICE", StringComparison.OrdinalIgnoreCase);
+            if (isAdminInvoiceGroup)
+                result.AvailableUsers = userSet.Where(u => ADMIN_INVOICE_USERS.Contains(u)).OrderBy(u => u).ToList();
+            else
+                result.AvailableUsers = userSet.OrderBy(x => x).ToList();
 
             var allRecords = new List<EvaluasiItem>();
 

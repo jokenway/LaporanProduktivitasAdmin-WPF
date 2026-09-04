@@ -297,8 +297,7 @@
                                       ColumnHeaderStyle="{StaticResource TableHeaderStyle}">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="User (USID)" Binding="{Binding User}" Width="160" />
-                                    <DataGridTextColumn Header="Total Nota (Keseluruhan)" Binding="{Binding TotalNotaAll, StringFormat='{}{0:N0}'}" Width="180" />
-                                    <DataGridTextColumn Header="Total Nota (Filter Aktif)" Binding="{Binding TotalNotaFiltered, StringFormat='{}{0:N0}'}" Width="180" />
+                                    <DataGridTextColumn Header="Total Nota (Filter Aktif)" Binding="{Binding TotalNota, StringFormat='{}{0:N0}'}" Width="200" />
                                     <DataGridTextColumn Header="Kontribusi (%)" Binding="{Binding ContributionPct, StringFormat='{}{0:F1}%'}" Width="130" />
                                 </DataGrid.Columns>
                             </DataGrid>

@@ -444,39 +444,35 @@ namespace LaporanProduktivitasWPF.ViewModels
             TotalCountJMDOS = res.TotalCountJMDOS;
             TotalSumNetto = res.TotalSumNetto;
 
-            // Build per-user summary (always use grand UserStats for TotalNotaAll)
+            // Build per-user summary from FILTERED items only (reflects active filter)
             GrandTotalAllNota = res.GrandTotalNotaKeseluruhan;
-            var filteredUserTotals = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            foreach (var it in res.Items)
-            {
-                if (!string.IsNullOrEmpty(it.USID))
-                {
-                    if (!filteredUserTotals.ContainsKey(it.USID)) filteredUserTotals[it.USID] = 0;
-                    // CountJMDOS is per invoice-group row; for nota count we count items per user
-                }
-            }
-            // Count unique NOINV per USID from filtered items
+
+            // Count unique NOINV per USID from filtered items only
             var filteredNotaPerUser = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (var it in res.Items)
             {
                 if (!string.IsNullOrEmpty(it.USID))
                 {
-                    if (!filteredNotaPerUser.ContainsKey(it.USID)) filteredNotaPerUser[it.USID] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    if (!string.IsNullOrEmpty(it.NOINV)) filteredNotaPerUser[it.USID].Add(it.NOINV);
+                    if (!filteredNotaPerUser.ContainsKey(it.USID))
+                        filteredNotaPerUser[it.USID] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    if (!string.IsNullOrEmpty(it.NOINV))
+                        filteredNotaPerUser[it.USID].Add(it.NOINV);
                 }
             }
 
-            var summaryList = res.UserStats
-                .OrderByDescending(kv => kv.Value)
+            // Filtered grand total = sum of all user filtered nota
+            int filteredGrandTotal = filteredNotaPerUser.Values.Sum(s => s.Count);
+
+            var summaryList = filteredNotaPerUser
+                .OrderByDescending(kv => kv.Value.Count)
                 .Select(kv =>
                 {
-                    int filteredCount = filteredNotaPerUser.ContainsKey(kv.Key) ? filteredNotaPerUser[kv.Key].Count : 0;
-                    double pct = GrandTotalAllNota > 0 ? Math.Round((double)kv.Value / GrandTotalAllNota * 100.0, 1) : 0.0;
+                    int cnt = kv.Value.Count;
+                    double pct = filteredGrandTotal > 0 ? Math.Round((double)cnt / filteredGrandTotal * 100.0, 1) : 0.0;
                     return new UserNotaSummary
                     {
                         User = kv.Key,
-                        TotalNotaAll = kv.Value,
-                        TotalNotaFiltered = filteredCount,
+                        TotalNota = cnt,
                         ContributionPct = pct
                     };
                 })
@@ -555,12 +551,10 @@ namespace LaporanProduktivitasWPF.ViewModels
                 foreach (var d in res.AvailableDates) EvalAvailableDates.Add(d);
             }
 
-            if (EvalAvailableUsers.Count != res.AvailableUsers.Count + 1)
-            {
-                EvalAvailableUsers.Clear();
-                EvalAvailableUsers.Add("ALL");
-                foreach (var u in res.AvailableUsers) EvalAvailableUsers.Add(u);
-            }
+            // Always repopulate user dropdown (only 5 ADMIN_INVOICE users will appear)
+            EvalAvailableUsers.Clear();
+            EvalAvailableUsers.Add("ALL");
+            foreach (var u in res.AvailableUsers) EvalAvailableUsers.Add(u);
 
             foreach (var it in res.Records)
             {

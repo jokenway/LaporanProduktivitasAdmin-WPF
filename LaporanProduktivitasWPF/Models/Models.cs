@@ -195,9 +195,8 @@ namespace LaporanProduktivitasWPF.Models
     public class UserNotaSummary
     {
         public string User { get; set; }
-        public int TotalNotaAll { get; set; }       // total from full (unfiltered) UserStats
-        public int TotalNotaFiltered { get; set; }  // total in current filter context
-        public double ContributionPct { get; set; } // contribution % vs grand total
+        public int TotalNota { get; set; }          // nota count from active filter
+        public double ContributionPct { get; set; } // contribution % vs filtered total
     }
 
     public class ChartBarItem
