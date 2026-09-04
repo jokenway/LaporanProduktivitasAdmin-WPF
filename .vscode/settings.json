@@ -1,11 +1,16 @@
 {
     "CodeGPT.apiKey": "CodeGPT Plus Beta",
-    "dotnet.dotnetPath": "C:\\Users\\JUAL\\.dotnet",
     "dotnet.defaultSolution": "LaporanProduktivitasAdmin.sln",
     "dotnetAcquisitionExtension.existingPaths": {
         "dotnet": "C:\\Users\\JUAL\\.dotnet\\dotnet.exe"
     },
     "omnisharp.dotNetCliPaths": [
         "C:\\Users\\JUAL\\.dotnet"
+    ],
+    "dotnetAcquisitionExtension.existingDotnetPath": [
+        {
+            "extensionId": "ms-dotnettools.csharp",
+            "path": "C:\\Users\\JUAL\\.dotnet\\dotnet.exe"
+        }
     ]
 }

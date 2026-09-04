@@ -122,21 +122,14 @@ namespace LaporanProduktivitasWPF.Models
 
         public void UpdateAkurasi()
         {
-            // Logika bisnis:
-            // - Nota Dibuat (TotalNota) = nota yang BENAR saja (dari Excel)
-            // - Nota Salah = nota yang dibuat tapi salah (TIDAK termasuk dalam TotalNota)
-            // - Total Awal = TotalNota + NotaSalah (total semua nota yang dikerjakan)
-            // - Akurasi = TotalNota / TotalAwal × 100
-            //
-            // Contoh: Dibuat=3, Salah=2 → TotalAwal=5 → Akurasi = 3/5 = 60%
-            int totalAwal = TotalNota + _notaSalah;
-            if (totalAwal <= 0)
+            int effectiveTotal = Math.Max(TotalNota, _notaSalah);
+            if (effectiveTotal <= 0)
             {
                 Akurasi = 100.0;
             }
             else
             {
-                double ratio = (double)TotalNota / totalAwal;
+                double ratio = Math.Max(0.0, 1.0 - ((double)_notaSalah / effectiveTotal));
                 Akurasi = Math.Round(ratio * 100.0, 1);
             }
         }

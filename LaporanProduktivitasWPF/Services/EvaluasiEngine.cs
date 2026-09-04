@@ -221,10 +221,10 @@ namespace LaporanProduktivitasWPF.Services
                 dateCountSet.Add(rec.Tanggal);
             }
 
-            // Akurasi keseluruhan: TotalAwal = totNota + totSalah, Akurasi = totNota / TotalAwal
-            int totalAwalKeseluruhan = totNota + totSalah;
-            double overallAk = totalAwalKeseluruhan > 0
-                ? Math.Round((double)totNota / totalAwalKeseluruhan * 100.0, 1)
+            // Akurasi keseluruhan: gunakan max(totNota, totSalah) sebagai total
+            int effectiveTotalForAkurasi = Math.Max(totNota, totSalah);
+            double overallAk = effectiveTotalForAkurasi > 0
+                ? Math.Max(0.0, 1.0 - ((double)totSalah / effectiveTotalForAkurasi)) * 100.0
                 : 100.0;
             int hours = totJamMinutes / 60;
             int mins = totJamMinutes % 60;
