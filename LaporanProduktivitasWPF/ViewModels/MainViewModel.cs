@@ -551,10 +551,35 @@ namespace LaporanProduktivitasWPF.ViewModels
                 foreach (var d in res.AvailableDates) EvalAvailableDates.Add(d);
             }
 
-            // Always repopulate user dropdown (only 5 ADMIN_INVOICE users will appear)
-            EvalAvailableUsers.Clear();
-            EvalAvailableUsers.Add("ALL");
-            foreach (var u in res.AvailableUsers) EvalAvailableUsers.Add(u);
+            // Only repopulate user dropdown if content changed (prevents WPF binding loop causing duplicates)
+            var expectedUsers = res.AvailableUsers;
+            bool userListChanged = EvalAvailableUsers.Count != expectedUsers.Count + 1;
+            if (!userListChanged)
+            {
+                // also verify the actual users match
+                for (int i = 0; i < expectedUsers.Count; i++)
+                {
+                    if (i + 1 >= EvalAvailableUsers.Count || !string.Equals(EvalAvailableUsers[i + 1], expectedUsers[i], StringComparison.OrdinalIgnoreCase))
+                    {
+                        userListChanged = true;
+                        break;
+                    }
+                }
+            }
+            if (userListChanged)
+            {
+                // Temporarily disconnect the selected user binding to prevent re-trigger
+                string currentUser = _evalSelectedUser;
+                EvalAvailableUsers.Clear();
+                EvalAvailableUsers.Add("ALL");
+                foreach (var u in expectedUsers) EvalAvailableUsers.Add(u);
+                // Restore selection if it's still valid
+                if (!string.IsNullOrEmpty(currentUser) && currentUser != "ALL" && !expectedUsers.Contains(currentUser, StringComparer.OrdinalIgnoreCase))
+                {
+                    _evalSelectedUser = "ALL";
+                    OnPropertyChanged("EvalSelectedUser");
+                }
+            }
 
             foreach (var it in res.Records)
             {

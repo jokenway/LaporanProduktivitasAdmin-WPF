@@ -122,13 +122,17 @@ namespace LaporanProduktivitasWPF.Models
 
         public void UpdateAkurasi()
         {
-            if (TotalNota <= 0)
+            // Total nota untuk akurasi = max(NotaDibuat, NotaSalah)
+            // Contoh: dibuat=2, salah=3 → total=3, akurasi=(3-3)/3=0%
+            //         dibuat=10, salah=2 → total=10, akurasi=(10-2)/10=80%
+            int effectiveTotal = Math.Max(TotalNota, _notaSalah);
+            if (effectiveTotal <= 0)
             {
                 Akurasi = 100.0;
             }
             else
             {
-                double ratio = Math.Max(0.0, 1.0 - ((double)_notaSalah / TotalNota));
+                double ratio = Math.Max(0.0, 1.0 - ((double)_notaSalah / effectiveTotal));
                 Akurasi = Math.Round(ratio * 100.0, 1);
             }
         }
