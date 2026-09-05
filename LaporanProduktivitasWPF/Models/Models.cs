@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace LaporanProduktivitasWPF.Models
@@ -75,11 +77,22 @@ namespace LaporanProduktivitasWPF.Models
             get { return _jamDatang; }
             set
             {
-                if (_jamDatang != value)
+                if (TryParseTime(value, out string formatted))
                 {
-                    _jamDatang = value ?? "";
+                    if (_jamDatang != formatted)
+                    {
+                        _jamDatang = formatted;
+                        OnPropertyChanged("JamDatang");
+                        UpdateDurasi();
+                    }
+                    else if (value != formatted)
+                    {
+                        OnPropertyChanged("JamDatang");
+                    }
+                }
+                else
+                {
                     OnPropertyChanged("JamDatang");
-                    UpdateDurasi();
                 }
             }
         }
@@ -90,13 +103,91 @@ namespace LaporanProduktivitasWPF.Models
             get { return _jamPulang; }
             set
             {
-                if (_jamPulang != value)
+                if (TryParseTime(value, out string formatted))
                 {
-                    _jamPulang = value ?? "";
+                    if (_jamPulang != formatted)
+                    {
+                        _jamPulang = formatted;
+                        OnPropertyChanged("JamPulang");
+                        UpdateDurasi();
+                    }
+                    else if (value != formatted)
+                    {
+                        OnPropertyChanged("JamPulang");
+                    }
+                }
+                else
+                {
                     OnPropertyChanged("JamPulang");
-                    UpdateDurasi();
                 }
             }
+        }
+
+        /// <summary>
+        /// Mengubah dan memvalidasi input teks menjadi format waktu standar (jam:menit / HH:mm).
+        /// Mendukung input seperti: "08:00", "8:00", "08.00", "8.00", "0800", "8", "17", "1730", dll.
+        /// </summary>
+        public static bool TryParseTime(string input, out string formattedTime)
+        {
+            formattedTime = string.Empty;
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return true; // input kosong valid untuk menghapus jam
+            }
+
+            string s = input.Trim().Replace('.', ':');
+
+            // Format jam:menit standar (cth: "8:0", "08:00", "17:30")
+            if (TimeSpan.TryParseExact(s, new[] { "h\\:m", "hh\\:mm", "h\\:mm", "hh\\:m" }, CultureInfo.InvariantCulture, out TimeSpan ts))
+            {
+                if (ts.TotalHours >= 0 && ts.TotalHours < 24)
+                {
+                    formattedTime = string.Format("{0:D2}:{1:D2}", ts.Hours, ts.Minutes);
+                    return true;
+                }
+            }
+
+            if (DateTime.TryParseExact(s, new[] { "H:m", "HH:mm", "H:mm", "HH:m" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dt))
+            {
+                formattedTime = dt.ToString("HH:mm");
+                return true;
+            }
+
+            // Input hanya angka (cth: "8" -> "08:00", "17" -> "17:00", "830" -> "08:30", "1730" -> "17:30")
+            string digits = new string(s.Where(char.IsDigit).ToArray());
+            if (digits.Length > 0 && digits.Length <= 4)
+            {
+                if (digits.Length <= 2)
+                {
+                    if (int.TryParse(digits, out int h) && h >= 0 && h < 24)
+                    {
+                        formattedTime = string.Format("{0:D2}:00", h);
+                        return true;
+                    }
+                }
+                else if (digits.Length == 3)
+                {
+                    if (int.TryParse(digits.Substring(0, 1), out int h) &&
+                        int.TryParse(digits.Substring(1, 2), out int m) &&
+                        h >= 0 && h < 24 && m >= 0 && m < 60)
+                    {
+                        formattedTime = string.Format("{0:D2}:{1:D2}", h, m);
+                        return true;
+                    }
+                }
+                else if (digits.Length == 4)
+                {
+                    if (int.TryParse(digits.Substring(0, 2), out int h) &&
+                        int.TryParse(digits.Substring(2, 2), out int m) &&
+                        h >= 0 && h < 24 && m >= 0 && m < 60)
+                    {
+                        formattedTime = string.Format("{0:D2}:{1:D2}", h, m);
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private int _durasiMinutes;

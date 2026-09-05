@@ -397,12 +397,48 @@
                                                 HeaderStyle="{StaticResource TableHeaderStyle}" />
                             <DataGridTextColumn Header="✏️ Nota Salah (Input)" Binding="{Binding NotaSalah, UpdateSourceTrigger=LostFocus}" Width="130"
                                                 HeaderStyle="{StaticResource RoseHeaderStyle}" />
-                            <DataGridTextColumn Header="Akurasi (%)" Binding="{Binding Akurasi, StringFormat='{}{0:F1}%'}" IsReadOnly="True" Width="90"
-                                                HeaderStyle="{StaticResource TableHeaderStyle}" />
-                            <DataGridTextColumn Header="✏️ Jam Datang" Binding="{Binding JamDatang, UpdateSourceTrigger=LostFocus}" Width="110"
-                                                HeaderStyle="{StaticResource AmberHeaderStyle}" />
-                            <DataGridTextColumn Header="✏️ Jam Pulang" Binding="{Binding JamPulang, UpdateSourceTrigger=LostFocus}" Width="110"
-                                                HeaderStyle="{StaticResource AmberHeaderStyle}" />
+                            <DataGridTextColumn Header="✏️ Jam Datang (jam:menit)" Binding="{Binding JamDatang, UpdateSourceTrigger=LostFocus}" Width="145"
+                                                HeaderStyle="{StaticResource AmberHeaderStyle}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="FontFamily" Value="Consolas, Segoe UI, monospace" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                                <DataGridTextColumn.EditingElementStyle>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                                        <Setter Property="FontFamily" Value="Consolas, Segoe UI, monospace" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="MaxLength" Value="5" />
+                                        <Setter Property="ToolTip" Value="Format waktu: jam:menit (contoh: 08:00, 17:30)" />
+                                    </Style>
+                                </DataGridTextColumn.EditingElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="✏️ Jam Pulang (jam:menit)" Binding="{Binding JamPulang, UpdateSourceTrigger=LostFocus}" Width="145"
+                                                HeaderStyle="{StaticResource AmberHeaderStyle}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="FontFamily" Value="Consolas, Segoe UI, monospace" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                                <DataGridTextColumn.EditingElementStyle>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                                        <Setter Property="FontFamily" Value="Consolas, Segoe UI, monospace" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="MaxLength" Value="5" />
+                                        <Setter Property="ToolTip" Value="Format waktu: jam:menit (contoh: 08:00, 17:30)" />
+                                    </Style>
+                                </DataGridTextColumn.EditingElementStyle>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="Durasi" Binding="{Binding DurasiText}" IsReadOnly="True" Width="120"
                                                 HeaderStyle="{StaticResource TableHeaderStyle}" />
                             <DataGridTextColumn Header="✏️ Catatan / Keterangan" Binding="{Binding Keterangan, UpdateSourceTrigger=LostFocus}" Width="*"
