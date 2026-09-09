@@ -262,7 +262,16 @@ namespace LaporanProduktivitasWPF.ViewModels
         public string ActiveMonthKey
         {
             get { return _activeMonthKey; }
-            set { _activeMonthKey = value; OnPropertyChanged("ActiveMonthKey"); }
+            set
+            {
+                _activeMonthKey = value;
+                OnPropertyChanged("ActiveMonthKey");
+                // Refresh IsActiveMonth flags on all month tabs
+                foreach (var m in SavedMonths)
+                    m.IsActiveMonth = string.Equals(m.Key, _activeMonthKey, StringComparison.OrdinalIgnoreCase);
+                // Force UI refresh by reassigning collection items
+                RefreshSavedMonths();
+            }
         }
 
         // Commands
@@ -347,9 +356,15 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private void RefreshSavedMonths()
         {
+            // Urutkan berdasarkan indeks bulan Indonesia (JANUARI=0, FEBRUARI=1, ... DESEMBER=11)
             var metas = StorageService.LoadSavedFilesMeta()
-                .OrderByDescending(m => Array.IndexOf(ExcelService.INDONESIAN_MONTHS, m.Key))
+                .OrderBy(m => Array.IndexOf(ExcelService.INDONESIAN_MONTHS, m.Key))
                 .ToList();
+
+            // Set IsActiveMonth berdasarkan ActiveMonthKey
+            foreach (var m in metas)
+                m.IsActiveMonth = string.Equals(m.Key, _activeMonthKey, StringComparison.OrdinalIgnoreCase);
+
             SavedMonths.Clear();
             foreach (var m in metas) SavedMonths.Add(m);
         }

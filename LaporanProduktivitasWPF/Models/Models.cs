@@ -309,5 +309,9 @@ namespace LaporanProduktivitasWPF.Models
         public int RowCount { get; set; }       // Number of rows
         public string DefaultSheet { get; set; } // Active sheet name
         public long SavedAt { get; set; }       // Unix timestamp
+
+        // Not persisted — set at runtime for UI binding
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool IsActiveMonth { get; set; }
     }
 }
