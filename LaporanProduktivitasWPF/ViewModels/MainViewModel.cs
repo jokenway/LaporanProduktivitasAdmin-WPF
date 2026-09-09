@@ -435,8 +435,8 @@ namespace LaporanProduktivitasWPF.ViewModels
                     monthKey = Path.GetFileNameWithoutExtension(origFileName).ToUpperInvariant();
                 }
 
-                // Tentukan sheet terbaik
-                string bestSheet = parsed.SheetNames.Count > 0 ? parsed.SheetNames[0] : "";
+                // Tentukan sheet terbaik — prioritas "L028D", fallback ke sheet pertama
+                string bestSheet = PickBestSheet(parsed.SheetNames);
                 int totalRows = bestSheet != "" && parsed.Sheets.ContainsKey(bestSheet)
                     ? parsed.Sheets[bestSheet].Rows.Count : 0;
 
@@ -508,7 +508,7 @@ namespace LaporanProduktivitasWPF.ViewModels
                 SheetNames.Clear();
                 foreach (var name in parsed.SheetNames) SheetNames.Add(name);
 
-                string bestSheet = parsed.SheetNames.Count > 0 ? parsed.SheetNames[0] : "";
+                string bestSheet = PickBestSheet(parsed.SheetNames);
                 ActiveSheet = bestSheet;
                 StatusMessage = "✅ Menampilkan data bulan " + monthKey + " — " + RowCount.ToString("N0") + " baris.";
                 ActiveTab = "dashboard";
@@ -528,6 +528,25 @@ namespace LaporanProduktivitasWPF.ViewModels
         public async Task LoadExcelAsync(string filePath)
         {
             await ImportAndCacheAsync(filePath);
+        }
+
+        /// <summary>
+        /// Memilih sheet terbaik dari daftar sheet yang tersedia.
+        /// Prioritas: "L028D" → sheet pertama yang ada.
+        /// </summary>
+        private static string PickBestSheet(IList<string> sheetNames)
+        {
+            if (sheetNames == null || sheetNames.Count == 0) return "";
+
+            // Cari sheet bernama "L028D" (case-insensitive)
+            foreach (var name in sheetNames)
+            {
+                if (string.Equals(name, "L028D", StringComparison.OrdinalIgnoreCase))
+                    return name;
+            }
+
+            // Fallback: sheet pertama
+            return sheetNames[0];
         }
 
         private void OnSheetChanged()
