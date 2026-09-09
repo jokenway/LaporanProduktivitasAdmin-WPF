@@ -11,3 +11,8 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 *.lnk
+
+# Excel data files (data besar, tidak perlu di-track git)
+*.xlsx
+*.xlsm
+*.xls
