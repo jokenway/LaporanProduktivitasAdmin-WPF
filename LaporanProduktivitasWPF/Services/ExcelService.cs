@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -38,6 +38,36 @@ namespace LaporanProduktivitasWPF.Services
 
     public static class ExcelService
     {
+        // Nama bulan Indonesia yang didukung
+        public static readonly string[] INDONESIAN_MONTHS = {
+            "JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI",
+            "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"
+        };
+
+        // Teks yang diabaikan saat parsing bulan dari nama file
+        private static readonly string[] IGNORED_KEYWORDS = { "CLOSING", "LAPORAN", "DATA", "REKAP", "REPORT", "FINAL" };
+
+        /// <summary>
+        /// Mengambil nama bulan dari nama file.
+        /// Format yang didukung: "JULI - CLOSING.xlsx", "AGUSTUS CLOSING 2024.xlsx", dst.
+        /// Mengembalikan nama bulan (uppercase) atau null jika tidak ditemukan.
+        /// </summary>
+        public static string ExtractMonthFromFileName(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName)) return null;
+
+            string upper = Path.GetFileNameWithoutExtension(fileName).ToUpperInvariant();
+
+            // Cari nama bulan Indonesia dalam nama file
+            foreach (var month in INDONESIAN_MONTHS)
+            {
+                if (upper.Contains(month))
+                    return month;
+            }
+
+            return null;
+        }
+
         public static ExcelParseResult ParseExcelFile(string filePath)
         {
             var result = new ExcelParseResult();

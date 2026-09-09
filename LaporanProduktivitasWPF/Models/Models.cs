@@ -300,11 +300,14 @@ namespace LaporanProduktivitasWPF.Models
 
     public class SavedFileMeta
     {
-        public string Key { get; set; }
-        public string Label { get; set; }
-        public string MonthName { get; set; }
+        public string Key { get; set; }         // e.g., "JULI"
+        public string Label { get; set; }       // Display name, e.g., "Juli"
+        public string MonthName { get; set; }   // e.g., "JULI"
         public int Year { get; set; }
-        public string FileName { get; set; }
-        public long SavedAt { get; set; }
+        public string FileName { get; set; }    // Original filename
+        public string CachedFileName { get; set; } // Cached filename in AppData/files/
+        public int RowCount { get; set; }       // Number of rows
+        public string DefaultSheet { get; set; } // Active sheet name
+        public long SavedAt { get; set; }       // Unix timestamp
     }
 }

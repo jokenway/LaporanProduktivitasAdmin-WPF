@@ -77,6 +77,13 @@
             <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
 
+        <!-- Danger Button Style -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#BE123C" />
+            <Setter Property="BorderBrush" Value="#BE123C" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
         <!-- DataGrid Column Header Styles -->
         <Style x:Key="TableHeaderStyle" TargetType="DataGridColumnHeader">
             <Setter Property="Background" Value="#FFFFFF" />

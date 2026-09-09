@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using LaporanProduktivitasWPF.Models;
 
@@ -24,18 +25,21 @@ namespace LaporanProduktivitasWPF.Services
 
         private static readonly string LogsFilePath = Path.Combine(AppDataFolder, "manual_logs.json");
         private static readonly string MetaFilePath = Path.Combine(AppDataFolder, "saved_meta.json");
+        private static readonly string FilesFolder = Path.Combine(AppDataFolder, "files");
 
         static StorageService()
         {
             try
             {
-                if (!Directory.Exists(AppDataFolder))
-                {
-                    Directory.CreateDirectory(AppDataFolder);
-                }
+                if (!Directory.Exists(AppDataFolder)) Directory.CreateDirectory(AppDataFolder);
+                if (!Directory.Exists(FilesFolder)) Directory.CreateDirectory(FilesFolder);
             }
             catch { }
         }
+
+        // ─────────────────────────────────────────────────
+        // Manual Logs (Nota Salah, Jam Datang, Jam Pulang)
+        // ─────────────────────────────────────────────────
 
         public static Dictionary<string, EvaluasiItem> LoadManualLogs()
         {
@@ -98,6 +102,103 @@ namespace LaporanProduktivitasWPF.Services
             catch { }
         }
 
+        // ─────────────────────────────────────────────────
+        // Penyimpanan Data per Bulan (copy file xlsx)
+        // ─────────────────────────────────────────────────
+
+        /// <summary>
+        /// Menyimpan file Excel ke cache AppData/files/ dan mencatat metadata-nya.
+        /// Jika bulan sudah ada, data lama ditimpa.
+        /// </summary>
+        public static void SaveMonthFile(string monthKey, string originalFilePath, string defaultSheet, int rowCount)
+        {
+            try
+            {
+                string cachedFileName = monthKey.ToUpperInvariant() + ".xlsx";
+                string cachedFilePath = Path.Combine(FilesFolder, cachedFileName);
+
+                // Copy file xlsx ke AppData/files/
+                File.Copy(originalFilePath, cachedFilePath, overwrite: true);
+
+                // Update metadata
+                var metas = LoadSavedFilesMeta();
+                var existing = metas.FirstOrDefault(m => string.Equals(m.Key, monthKey, StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    existing.FileName = Path.GetFileName(originalFilePath);
+                    existing.CachedFileName = cachedFileName;
+                    existing.DefaultSheet = defaultSheet;
+                    existing.RowCount = rowCount;
+                    existing.SavedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                }
+                else
+                {
+                    metas.Add(new SavedFileMeta
+                    {
+                        Key = monthKey.ToUpperInvariant(),
+                        Label = ToTitleCase(monthKey),
+                        MonthName = monthKey.ToUpperInvariant(),
+                        Year = DateTime.Now.Year,
+                        FileName = Path.GetFileName(originalFilePath),
+                        CachedFileName = cachedFileName,
+                        DefaultSheet = defaultSheet,
+                        RowCount = rowCount,
+                        SavedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                    });
+                }
+
+                SaveSavedFilesMeta(metas);
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Mengembalikan path file Excel yang di-cache berdasarkan monthKey.
+        /// Null jika tidak ditemukan.
+        /// </summary>
+        public static string GetMonthFilePath(string monthKey)
+        {
+            try
+            {
+                var metas = LoadSavedFilesMeta();
+                var meta = metas.FirstOrDefault(m => string.Equals(m.Key, monthKey, StringComparison.OrdinalIgnoreCase));
+                if (meta == null || string.IsNullOrEmpty(meta.CachedFileName)) return null;
+
+                string path = Path.Combine(FilesFolder, meta.CachedFileName);
+                return File.Exists(path) ? path : null;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>
+        /// Menghapus data bulan dari cache dan metadata.
+        /// </summary>
+        public static void DeleteMonthData(string monthKey)
+        {
+            try
+            {
+                var metas = LoadSavedFilesMeta();
+                var meta = metas.FirstOrDefault(m => string.Equals(m.Key, monthKey, StringComparison.OrdinalIgnoreCase));
+                if (meta != null)
+                {
+                    // Hapus file cache
+                    if (!string.IsNullOrEmpty(meta.CachedFileName))
+                    {
+                        string cachedPath = Path.Combine(FilesFolder, meta.CachedFileName);
+                        if (File.Exists(cachedPath)) File.Delete(cachedPath);
+                    }
+
+                    metas.Remove(meta);
+                    SaveSavedFilesMeta(metas);
+                }
+            }
+            catch { }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Metadata List
+        // ─────────────────────────────────────────────────
+
         public static List<SavedFileMeta> LoadSavedFilesMeta()
         {
             try
@@ -121,6 +222,16 @@ namespace LaporanProduktivitasWPF.Services
                 File.WriteAllText(MetaFilePath, json);
             }
             catch { }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Helper
+        // ─────────────────────────────────────────────────
+
+        private static string ToTitleCase(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            return char.ToUpper(s[0]) + s.Substring(1).ToLowerInvariant();
         }
     }
 }
