@@ -16,3 +16,7 @@ $RECYCLE.BIN/
 *.xlsx
 *.xlsm
 *.xls
+
+# Standalone build outputs & ZIP
+LaporanProduktivitasApp/
+LaporanProduktivitasApp.zip
