@@ -94,12 +94,42 @@ namespace LaporanProduktivitasWPF.Services
                 }
             }
 
+            // Tambahkan juga tanggal dari manualLogs (jika ada input manual pada tanggal yang tidak ada transaksi)
+            if (manualLogs != null)
+            {
+                foreach (var k in manualLogs.Keys)
+                {
+                    string[] parts = k.Split(new[] { "___" }, StringSplitOptions.None);
+                    if (parts.Length == 2 && !string.IsNullOrEmpty(parts[1]))
+                    {
+                        dateSet.Add(parts[1]);
+                    }
+                }
+            }
+
+            bool isAdminInvoiceGroup = string.Equals(userGroup, "ADMIN_INVOICE", StringComparison.OrdinalIgnoreCase);
+
+            // Jika grup ADMIN_INVOICE: Pastikan SETIAP TANGGAL memiliki baris untuk SEMUA 7 tim fakturis,
+            // meskipun user tersebut tidak membuat nota sama sekali (TotalNota = 0)
+            if (isAdminInvoiceGroup)
+            {
+                foreach (var d in dateSet)
+                {
+                    foreach (var u in ADMIN_INVOICE_USERS)
+                    {
+                        string key = u + "___" + d;
+                        if (!mapData.ContainsKey(key))
+                        {
+                            mapData[key] = new Tuple<string, string, HashSet<string>>(u, d, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+                        }
+                    }
+                }
+            }
+
             result.AvailableDates = dateSet.OrderBy(x => x).ToList();
 
-            // When ADMIN_INVOICE group: only expose those 5 users in the filter dropdown
-            bool isAdminInvoiceGroup = string.Equals(userGroup, "ADMIN_INVOICE", StringComparison.OrdinalIgnoreCase);
             if (isAdminInvoiceGroup)
-                result.AvailableUsers = userSet.Where(u => ADMIN_INVOICE_USERS.Contains(u)).OrderBy(u => u).ToList();
+                result.AvailableUsers = ADMIN_INVOICE_USERS.OrderBy(u => u).ToList();
             else
                 result.AvailableUsers = userSet.OrderBy(x => x).ToList();
 
