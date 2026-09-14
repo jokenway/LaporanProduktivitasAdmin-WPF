@@ -787,11 +787,35 @@ namespace LaporanProduktivitasWPF.ViewModels
                     // Jika Viewer (ST), abaikan perubahan
                     if (_currentUser != null && !_currentUser.CanInputAttendance && !_currentUser.CanInputNotaSalah)
                         return;
+
                     _manualLogs[item.Key] = item;
                     SaveManualLogsToStorage();
+                    RecalculateEvaluasiSummary();
                 };
             }
             EvaluasiItems = new ObservableCollection<EvaluasiItem>(res.Records);
+            AdminInvoiceMetrics = new ObservableCollection<AdminInvoiceMetric>(res.UserMetrics);
+            AdminInvoiceTotalNota = res.GroupTotalNota;
+
+            EvalTotalNota = res.Summary.TotalNota;
+            EvalTotalSalah = res.Summary.TotalSalah;
+            EvalOverallAkurasi = res.Summary.OverallAkurasi;
+            EvalTotalJamText = res.Summary.TotalJamKerjaText;
+            EvalUserCount = res.Summary.UserCount;
+            EvalDateCount = res.Summary.DateCount;
+        }
+
+        private void RecalculateEvaluasiSummary()
+        {
+            var res = EvaluasiEngine.BuildDailyEvaluation(
+                _currentRows,
+                _manualLogs,
+                EvalSelectedDate,
+                EvalSelectedUser,
+                EvalSearchQuery,
+                "ADMIN_INVOICE"
+            );
+
             AdminInvoiceMetrics = new ObservableCollection<AdminInvoiceMetric>(res.UserMetrics);
             AdminInvoiceTotalNota = res.GroupTotalNota;
 

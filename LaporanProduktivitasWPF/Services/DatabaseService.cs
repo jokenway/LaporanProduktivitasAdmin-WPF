@@ -326,6 +326,19 @@ namespace LaporanProduktivitasWPF.Services
                 using var conn = new NpgsqlConnection(_connectionString);
                 await conn.OpenAsync();
 
+                bool isEmpty = item.NotaSalah <= 0 &&
+                               string.IsNullOrEmpty(item.JamDatang) &&
+                               string.IsNullOrEmpty(item.JamPulang) &&
+                               string.IsNullOrEmpty(item.Keterangan);
+
+                if (isEmpty)
+                {
+                    using var delCmd = new NpgsqlCommand("DELETE FROM manual_logs WHERE log_key = @k", conn);
+                    delCmd.Parameters.AddWithValue("k", item.Key);
+                    await delCmd.ExecuteNonQueryAsync();
+                    return;
+                }
+
                 string sql = @"
                     INSERT INTO manual_logs (log_key, nota_salah, jam_datang, jam_pulang, keterangan, updated_by, updated_at)
                     VALUES (@k, @ns, @jd, @jp, @ket, @ub, NOW())
@@ -356,11 +369,7 @@ namespace LaporanProduktivitasWPF.Services
         {
             foreach (var item in items)
             {
-                if (item.NotaSalah > 0 || !string.IsNullOrEmpty(item.JamDatang) ||
-                    !string.IsNullOrEmpty(item.JamPulang) || !string.IsNullOrEmpty(item.Keterangan))
-                {
-                    await SaveManualLogAsync(item, updatedBy);
-                }
+                await SaveManualLogAsync(item, updatedBy);
             }
         }
 
