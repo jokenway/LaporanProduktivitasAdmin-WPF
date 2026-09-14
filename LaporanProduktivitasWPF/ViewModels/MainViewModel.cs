@@ -375,7 +375,9 @@ namespace LaporanProduktivitasWPF.ViewModels
                 IsLoading = true;
                 StatusMessage = "Memperbarui data dari database PostgreSQL...";
 
-                // 1. Muat ulang log manual dan daftar bulan dari DB secara paralel di background thread
+                string savedTab = ActiveTab;
+
+                // 1. Muat ulang log manual dan daftar bulan dari DB secara paralel di background thread (Sangat Cepat ~20ms)
                 var logsTask = DatabaseService.LoadManualLogsAsync();
                 var monthsTask = DatabaseService.GetSavedMonthsAsync();
 
@@ -391,13 +393,21 @@ namespace LaporanProduktivitasWPF.ViewModels
                 SavedMonths.Clear();
                 foreach (var m in metas) SavedMonths.Add(m);
 
-                // 2. Jika ada bulan yang sedang aktif, muat ulang datanya dari DB di background thread
-                if (!string.IsNullOrEmpty(_activeMonthKey))
+                // 2. Jika data bulan sudah di memori, cukup hitung ulang tanpa unduh ulang ribuan baris Excel dari database
+                if (_currentRows != null && _currentRows.Count > 0)
                 {
-                    await SwitchToMonthAsync(_activeMonthKey);
+                    await OnSheetChangedAsync();
+                }
+                else if (!string.IsNullOrEmpty(_activeMonthKey))
+                {
+                    await SwitchToMonthAsync(_activeMonthKey, preserveActiveTab: true);
                 }
 
-                StatusMessage = "✅ Data berhasil diperbarui (" + DateTime.Now.ToString("HH:mm:ss") + ")";
+                // Tetap di halaman/tab yang sedang dibuka
+                if (!string.IsNullOrEmpty(savedTab))
+                    ActiveTab = savedTab;
+
+                StatusMessage = "⚡ Data berhasil diperbarui (" + DateTime.Now.ToString("HH:mm:ss") + ")";
             }
             catch (Exception ex)
             {
@@ -508,12 +518,13 @@ namespace LaporanProduktivitasWPF.ViewModels
             finally { IsLoading = false; }
         }
 
-        private async Task SwitchToMonthAsync(string monthKey)
+        private async Task SwitchToMonthAsync(string monthKey, bool preserveActiveTab = false)
         {
             try
             {
                 IsLoading = true;
                 StatusMessage = "Memuat data bulan " + monthKey + " dari database...";
+                string savedTab = ActiveTab;
 
                 // Ambil metadata bulan di background thread
                 var months = await Task.Run(() => DatabaseService.GetSavedMonthsAsync());
@@ -549,7 +560,11 @@ namespace LaporanProduktivitasWPF.ViewModels
                 await OnSheetChangedAsync();
 
                 StatusMessage = "✅ Data bulan " + monthKey + " — " + rows.Count.ToString("N0") + " baris.";
-                ActiveTab = "dashboard";
+
+                if (preserveActiveTab && !string.IsNullOrEmpty(savedTab))
+                    ActiveTab = savedTab;
+                else
+                    ActiveTab = "dashboard";
             }
             catch (Exception ex)
             {
