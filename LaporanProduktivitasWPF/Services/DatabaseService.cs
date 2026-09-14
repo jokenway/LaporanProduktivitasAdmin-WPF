@@ -244,6 +244,11 @@ namespace LaporanProduktivitasWPF.Services
             }
         }
 
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            AllowTrailingCommas = true
+        };
+
         /// <summary>
         /// Muat semua baris Excel untuk bulan tertentu dari PostgreSQL.
         /// </summary>
@@ -264,7 +269,7 @@ namespace LaporanProduktivitasWPF.Services
                 while (await reader.ReadAsync())
                 {
                     string json = reader.GetString(0);
-                    var cells = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                    var cells = JsonSerializer.Deserialize<Dictionary<string, string>>(json, _jsonOptions);
                     result.Add(new RawRow { Cells = cells ?? new Dictionary<string, string>() });
                 }
             }

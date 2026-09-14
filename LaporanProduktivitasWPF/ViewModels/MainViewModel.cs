@@ -375,13 +375,23 @@ namespace LaporanProduktivitasWPF.ViewModels
                 IsLoading = true;
                 StatusMessage = "Memperbarui data dari database PostgreSQL...";
 
-                // 1. Muat ulang log manual dari DB
-                _manualLogs = await DatabaseService.LoadManualLogsAsync();
+                // 1. Muat ulang log manual dan daftar bulan dari DB secara paralel di background thread
+                var logsTask = DatabaseService.LoadManualLogsAsync();
+                var monthsTask = DatabaseService.GetSavedMonthsAsync();
 
-                // 2. Muat ulang daftar bulan dari DB
-                await RefreshSavedMonthsAsync();
+                await Task.WhenAll(logsTask, monthsTask);
+                _manualLogs = await logsTask;
 
-                // 3. Jika ada bulan yang sedang aktif, muat ulang datanya dari DB
+                var metas = (await monthsTask)
+                    .OrderBy(m => Array.IndexOf(ExcelService.INDONESIAN_MONTHS, m.Key))
+                    .ToList();
+                foreach (var m in metas)
+                    m.IsActiveMonth = string.Equals(m.Key, _activeMonthKey, StringComparison.OrdinalIgnoreCase);
+
+                SavedMonths.Clear();
+                foreach (var m in metas) SavedMonths.Add(m);
+
+                // 2. Jika ada bulan yang sedang aktif, muat ulang datanya dari DB di background thread
                 if (!string.IsNullOrEmpty(_activeMonthKey))
                 {
                     await SwitchToMonthAsync(_activeMonthKey);
@@ -418,7 +428,6 @@ namespace LaporanProduktivitasWPF.ViewModels
         private async Task RefreshSavedMonthsAsync()
         {
             var metas = await DatabaseService.GetSavedMonthsAsync();
-            // Urutkan berdasarkan urutan bulan Indonesia
             metas = metas
                 .OrderBy(m => Array.IndexOf(ExcelService.INDONESIAN_MONTHS, m.Key))
                 .ToList();
@@ -472,11 +481,11 @@ namespace LaporanProduktivitasWPF.ViewModels
                     : new List<RawRow>();
                 int totalRows = rows.Count;
 
-                // Simpan ke PostgreSQL
+                // Simpan ke PostgreSQL di background thread
                 StatusMessage = "Menyimpan " + totalRows.ToString("N0") + " baris ke database...";
                 string labelDisplay = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthKey.ToLowerInvariant());
-                await DatabaseService.SaveMonthDataAsync(monthKey, labelDisplay, origFileName, bestSheet, totalRows,
-                    _currentUser?.Username ?? "", rows);
+                await Task.Run(() => DatabaseService.SaveMonthDataAsync(monthKey, labelDisplay, origFileName, bestSheet, totalRows,
+                    _currentUser?.Username ?? "", rows));
 
                 // Muat ke memori
                 FileName = origFileName;
@@ -506,8 +515,8 @@ namespace LaporanProduktivitasWPF.ViewModels
                 IsLoading = true;
                 StatusMessage = "Memuat data bulan " + monthKey + " dari database...";
 
-                // Ambil metadata bulan
-                var months = await DatabaseService.GetSavedMonthsAsync();
+                // Ambil metadata bulan di background thread
+                var months = await Task.Run(() => DatabaseService.GetSavedMonthsAsync());
                 var meta = months.FirstOrDefault(m => string.Equals(m.Key, monthKey, StringComparison.OrdinalIgnoreCase));
                 if (meta == null)
                 {
@@ -515,23 +524,29 @@ namespace LaporanProduktivitasWPF.ViewModels
                     return;
                 }
 
-                // Muat baris dari PostgreSQL
+                // Muat baris dari PostgreSQL di background thread
                 string sheetName = meta.DefaultSheet ?? "L028D";
-                var rows = await DatabaseService.LoadMonthRowsAsync(monthKey, sheetName);
+                var rows = await Task.Run(() => DatabaseService.LoadMonthRowsAsync(monthKey, sheetName));
 
-                // Bangun struktur ExcelSheetData
-                _sheetsData = new Dictionary<string, ExcelSheetData>(StringComparer.OrdinalIgnoreCase);
+                // Bangun struktur ExcelSheetData di background thread
+                var sheetsData = new Dictionary<string, ExcelSheetData>(StringComparer.OrdinalIgnoreCase);
                 if (rows.Count > 0)
                 {
                     var headers = new List<string>(rows[0].Cells.Keys);
-                    _sheetsData[sheetName] = new ExcelSheetData { Headers = headers, Rows = rows };
+                    sheetsData[sheetName] = new ExcelSheetData { Headers = headers, Rows = rows };
                 }
 
                 FileName = meta.FileName ?? monthKey;
                 SheetNames.Clear();
                 SheetNames.Add(sheetName);
                 ActiveMonthKey = monthKey;
-                ActiveSheet = sheetName;
+
+                _sheetsData = sheetsData;
+                _activeSheet = sheetName;
+                OnPropertyChanged("ActiveSheet");
+
+                // Hitung kalkulasi tabel di background thread
+                await OnSheetChangedAsync();
 
                 StatusMessage = "✅ Data bulan " + monthKey + " — " + rows.Count.ToString("N0") + " baris.";
                 ActiveTab = "dashboard";
@@ -567,6 +582,11 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private void OnSheetChanged()
         {
+            _ = OnSheetChangedAsync();
+        }
+
+        private async Task OnSheetChangedAsync()
+        {
             if (string.IsNullOrEmpty(_activeSheet) || !_sheetsData.ContainsKey(_activeSheet))
             {
                 _currentRows = new List<RawRow>();
@@ -599,9 +619,16 @@ namespace LaporanProduktivitasWPF.ViewModels
             OnPropertyChanged("EvalSelectedUser");
             OnPropertyChanged("EvalSearchQuery");
 
-            RefreshExactPivot();
-            RefreshEvaluasi();
-            RefreshDashboard();
+            // Compute heavy pivot & evaluations off the UI thread
+            await Task.Run(() =>
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    RefreshExactPivot();
+                    RefreshEvaluasi();
+                    RefreshDashboard();
+                });
+            });
         }
 
         private void RefreshExactPivot()
