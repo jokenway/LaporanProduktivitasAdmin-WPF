@@ -42,5 +42,30 @@ namespace LaporanProduktivitasWPF
             // Tutup window ini
             Close();
         }
+
+        private void OnEvaluasiGridBeginningEdit(object sender, System.Windows.Controls.DataGridBeginningEditEventArgs e)
+        {
+            if (_vm == null || _vm.CurrentUser == null) return;
+
+            string header = e.Column.Header?.ToString() ?? "";
+
+            // 1. Kolom "Nota Salah": HANYA USER AKBAR yang boleh menginput/mengedit!
+            // Jika user BUKAN AKBAR -> kunci total (cell tidak bisa diklik / diketik sama sekali)
+            if (header.Contains("Nota Salah"))
+            {
+                if (!_vm.CurrentUser.CanInputNotaSalah)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
+
+            // 2. Jika user ST (Viewer) -> kunci semua kolom input
+            if (!_vm.CurrentUser.CanInputAttendance && !_vm.CurrentUser.CanInputNotaSalah)
+            {
+                e.Cancel = true;
+                return;
+            }
+        }
     }
 }

@@ -579,6 +579,7 @@
 
                     <!-- Evaluasi DataGrid -->
                     <DataGrid ItemsSource="{Binding EvaluasiItems}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              BeginningEdit="OnEvaluasiGridBeginningEdit"
                               MaxHeight="360" Background="{StaticResource CardDarkBrush}"
                               Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
                               AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
