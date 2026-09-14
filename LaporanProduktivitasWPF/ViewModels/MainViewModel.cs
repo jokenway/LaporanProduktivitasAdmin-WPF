@@ -277,6 +277,7 @@ namespace LaporanProduktivitasWPF.ViewModels
         public ICommand SwitchMonthCommand { get; private set; }
         public ICommand DeleteMonthCommand { get; private set; }
         public ICommand LogoutCommand { get; private set; }
+        public ICommand RefreshAllDataCommand { get; private set; }
 
         /// <summary>Dipicu saat user klik logout — MainWindow subscribe untuk menangani.</summary>
         public event EventHandler LogoutRequested;
@@ -350,6 +351,8 @@ namespace LaporanProduktivitasWPF.ViewModels
                 LogoutRequested?.Invoke(this, EventArgs.Empty);
             });
 
+            RefreshAllDataCommand = new RelayCommand(async () => await RefreshAllDataAsync());
+
             // Load data dari database (async, tanpa blocking UI)
             InitializeAsync();
         }
@@ -363,6 +366,37 @@ namespace LaporanProduktivitasWPF.ViewModels
             await RefreshSavedMonthsAsync();
 
             StatusMessage = $"Selamat datang, {_currentUser?.Username}. Pilih bulan untuk melihat data.";
+        }
+
+        public async Task RefreshAllDataAsync()
+        {
+            try
+            {
+                IsLoading = true;
+                StatusMessage = "Memperbarui data dari database PostgreSQL...";
+
+                // 1. Muat ulang log manual dari DB
+                _manualLogs = await DatabaseService.LoadManualLogsAsync();
+
+                // 2. Muat ulang daftar bulan dari DB
+                await RefreshSavedMonthsAsync();
+
+                // 3. Jika ada bulan yang sedang aktif, muat ulang datanya dari DB
+                if (!string.IsNullOrEmpty(_activeMonthKey))
+                {
+                    await SwitchToMonthAsync(_activeMonthKey);
+                }
+
+                StatusMessage = "✅ Data berhasil diperbarui (" + DateTime.Now.ToString("HH:mm:ss") + ")";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "⚠️ Gagal memperbarui data: " + ex.Message;
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         // Saved months (for the month tab bar)

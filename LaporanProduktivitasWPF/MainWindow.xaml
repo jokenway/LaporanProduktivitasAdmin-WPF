@@ -175,8 +175,13 @@
                     </ItemsControl>
                 </ScrollViewer>
 
-                <!-- Import + Manage buttons -->
+                <!-- Refresh + Import + Manage buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,4">
+                    <!-- Tombol Refresh (Bisa diakses SEMUA user) -->
+                    <Button Content="🔄 Refresh" Command="{Binding RefreshAllDataCommand}"
+                            Style="{StaticResource ModernButton}" Height="28" FontSize="11" Padding="10,0" Margin="0,0,6,0"
+                            ToolTip="Muat ulang data terbaru dari server PostgreSQL" />
+
                     <!-- Hanya admin (AKBAR) yang bisa import -->
                     <Button Content="➕ Import" Command="{Binding OpenFileCommand}"
                             Style="{StaticResource PrimaryButton}" Height="28" FontSize="11" Padding="10,0" Margin="0,0,6,0"
