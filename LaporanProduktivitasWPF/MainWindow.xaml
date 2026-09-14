@@ -12,10 +12,6 @@
         Background="{StaticResource BgDarkBrush}"
         Foreground="{StaticResource TextLightBrush}">
 
-    <Window.DataContext>
-        <vm:MainViewModel />
-    </Window.DataContext>
-
     <Grid>
         <Grid.RowDefinitions>
             <!-- 0: Top Header -->
@@ -64,7 +60,15 @@
                     <!-- Info baris -->
                     <TextBlock Text="File Aktif: " Foreground="{StaticResource TextMutedBrush}" FontSize="11" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding FileName}" FontWeight="Bold" Foreground="{StaticResource BrandPrimaryBrush}" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding RowCount, StringFormat='{}({0:N0} baris)'}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding RowCount, StringFormat='{}({0:N0} baris)'}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <!-- User yang login -->
+                    <Border Background="#1E293B" CornerRadius="8" Padding="10,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="👤 " FontSize="12" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding CurrentUserDisplay}" FontSize="12" FontWeight="Bold"
+                                       Foreground="{StaticResource BrandPrimaryBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Grid>
         </Border>
@@ -156,10 +160,15 @@
 
                 <!-- Import + Manage buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,4">
+                    <!-- Hanya admin (AKBAR) yang bisa import -->
                     <Button Content="➕ Import" Command="{Binding OpenFileCommand}"
-                            Style="{StaticResource PrimaryButton}" Height="28" FontSize="11" Padding="10,0" Margin="0,0,6,0" />
+                            Style="{StaticResource PrimaryButton}" Height="28" FontSize="11" Padding="10,0" Margin="0,0,6,0"
+                            IsEnabled="{Binding CurrentUser.CanImport}"
+                            Visibility="{Binding CurrentUser.CanImport, Converter={StaticResource BoolToVis}}" />
                     <Button Content="🗂 Kelola" Command="{Binding SwitchTabCommand}" CommandParameter="import"
-                            Style="{StaticResource ModernButton}" Height="28" FontSize="11" Padding="10,0" />
+                            Style="{StaticResource ModernButton}" Height="28" FontSize="11" Padding="10,0"
+                            IsEnabled="{Binding CurrentUser.CanImport}"
+                            Visibility="{Binding CurrentUser.CanImport, Converter={StaticResource BoolToVis}}" />
                 </StackPanel>
             </Grid>
         </Border>

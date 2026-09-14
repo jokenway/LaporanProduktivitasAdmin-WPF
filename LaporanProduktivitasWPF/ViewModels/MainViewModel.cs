@@ -255,24 +255,14 @@ namespace LaporanProduktivitasWPF.ViewModels
         private string _customAggType = "DISTINCT_COUNT";
         public string CustomAggType { get { return _customAggType; } set { _customAggType = value; OnPropertyChanged("CustomAggType"); } }
 
-        // Saved months (for the import/month management tab)
-        public ObservableCollection<SavedFileMeta> SavedMonths { get; private set; }
-
-        private string _activeMonthKey = "";
-        public string ActiveMonthKey
+        // Current logged-in user (role-based access control)
+        private AppUser _currentUser;
+        public AppUser CurrentUser
         {
-            get { return _activeMonthKey; }
-            set
-            {
-                _activeMonthKey = value;
-                OnPropertyChanged("ActiveMonthKey");
-                // Refresh IsActiveMonth flags on all month tabs
-                foreach (var m in SavedMonths)
-                    m.IsActiveMonth = string.Equals(m.Key, _activeMonthKey, StringComparison.OrdinalIgnoreCase);
-                // Force UI refresh by reassigning collection items
-                RefreshSavedMonths();
-            }
+            get { return _currentUser; }
+            set { _currentUser = value; OnPropertyChanged("CurrentUser"); OnPropertyChanged("CurrentUserDisplay"); }
         }
+        public string CurrentUserDisplay => _currentUser != null ? $"{_currentUser.Username} ({_currentUser.Role})" : "";
 
         // Commands
         public ICommand SwitchTabCommand { get; private set; }
@@ -287,8 +277,10 @@ namespace LaporanProduktivitasWPF.ViewModels
         public ICommand SwitchMonthCommand { get; private set; }
         public ICommand DeleteMonthCommand { get; private set; }
 
-        public MainViewModel()
+        public MainViewModel(AppUser currentUser)
         {
+            _currentUser = currentUser;
+
             SheetNames = new ObservableCollection<string>();
             AvailableDates = new ObservableCollection<string>();
             AvailableUsers = new ObservableCollection<string>();
@@ -318,105 +310,105 @@ namespace LaporanProduktivitasWPF.ViewModels
             ApplyDefaultHoursCommand = new RelayCommand(() => ApplyDefaultWorkingHours());
             ResetInputsCommand = new RelayCommand(() => ResetManualInputs());
             ApplyPresetCommand = new RelayCommand(() => ApplyCustomPreset());
-            SaveChangesCommand = new RelayCommand(() => SaveManualLogsToStorage());
+            SaveChangesCommand = new RelayCommand(async () => await SaveManualLogsToDatabaseAsync());
 
             SwitchMonthCommand = new RelayCommand(async param =>
             {
                 if (param != null) await SwitchToMonthAsync(param.ToString());
             });
 
-            DeleteMonthCommand = new RelayCommand(param =>
+            DeleteMonthCommand = new RelayCommand(async param =>
             {
                 if (param == null) return;
                 string key = param.ToString();
                 var result = MessageBox.Show(
-                    "Hapus data bulan " + key + "? File cache akan dihapus permanen.",
+                    "Hapus data bulan " + key + " dari database? Data tidak bisa dikembalikan.",
                     "Konfirmasi Hapus",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Warning
                 );
                 if (result == MessageBoxResult.Yes)
                 {
-                    StorageService.DeleteMonthData(key);
+                    await DatabaseService.DeleteMonthAsync(key);
                     if (string.Equals(_activeMonthKey, key, StringComparison.OrdinalIgnoreCase))
+                    {
                         ActiveMonthKey = "";
-                    RefreshSavedMonths();
+                        _currentRows = new List<RawRow>();
+                        RowCount = 0;
+                        FileName = "";
+                    }
+                    await RefreshSavedMonthsAsync();
                 }
             });
 
-            // Load saved manual logs
-            _manualLogs = StorageService.LoadManualLogs();
-
-            // Load saved months list from metadata
-            RefreshSavedMonths();
-
-            // Auto-load last saved month, or bundled file, or sample
-            TryAutoLoad();
+            // Load data dari database (async, tanpa blocking UI)
+            InitializeAsync();
         }
 
-        private void RefreshSavedMonths()
+        private async void InitializeAsync()
         {
-            // Urutkan berdasarkan indeks bulan Indonesia (JANUARI=0, FEBRUARI=1, ... DESEMBER=11)
-            var metas = StorageService.LoadSavedFilesMeta()
+            // Load manual logs dari database
+            _manualLogs = await DatabaseService.LoadManualLogsAsync();
+
+            // Load daftar bulan dari database (tidak auto-load data bulan manapun)
+            await RefreshSavedMonthsAsync();
+
+            StatusMessage = $"Selamat datang, {_currentUser?.Username}. Pilih bulan untuk melihat data.";
+        }
+
+        // Saved months (for the month tab bar)
+        public ObservableCollection<SavedFileMeta> SavedMonths { get; private set; }
+
+        private string _activeMonthKey = "";
+        public string ActiveMonthKey
+        {
+            get { return _activeMonthKey; }
+            set
+            {
+                _activeMonthKey = value;
+                OnPropertyChanged("ActiveMonthKey");
+                foreach (var m in SavedMonths)
+                    m.IsActiveMonth = string.Equals(m.Key, _activeMonthKey, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private async Task RefreshSavedMonthsAsync()
+        {
+            var metas = await DatabaseService.GetSavedMonthsAsync();
+            // Urutkan berdasarkan urutan bulan Indonesia
+            metas = metas
                 .OrderBy(m => Array.IndexOf(ExcelService.INDONESIAN_MONTHS, m.Key))
                 .ToList();
-
-            // Set IsActiveMonth berdasarkan ActiveMonthKey
             foreach (var m in metas)
                 m.IsActiveMonth = string.Equals(m.Key, _activeMonthKey, StringComparison.OrdinalIgnoreCase);
 
-            SavedMonths.Clear();
-            foreach (var m in metas) SavedMonths.Add(m);
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                SavedMonths.Clear();
+                foreach (var m in metas) SavedMonths.Add(m);
+            });
         }
 
-        private async void TryAutoLoad()
-        {
-            // 1. Jika ada bulan tersimpan, muat yang terakhir disimpan
-            var metas = StorageService.LoadSavedFilesMeta();
-            if (metas.Count > 0)
-            {
-                var latest = metas.OrderByDescending(m => m.SavedAt).First();
-                string cachedPath = StorageService.GetMonthFilePath(latest.Key);
-                if (!string.IsNullOrEmpty(cachedPath))
-                {
-                    await LoadExcelFromPathAsync(cachedPath, latest.Key);
-                    return;
-                }
-            }
-
-            // 2. Coba bundled file
-            string bundled = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "JULI - CLOSING.xlsx");
-            if (!File.Exists(bundled))
-                bundled = @"c:\Laporan Produktifitas Admin\JULI - CLOSING.xlsx";
-
-            if (File.Exists(bundled))
-            {
-                await ImportAndCacheAsync(bundled);
-            }
-            else
-            {
-                LoadSampleData();
-            }
-        }
+        // Kept for backward compat (sync path) — now delegates to async
+        private void RefreshSavedMonths() { }
 
         private async Task ChooseAndOpenFileAsync()
         {
+            // Hanya admin yang bisa import
+            if (_currentUser == null || !_currentUser.CanImport)
+            {
+                MessageBox.Show("Hanya administrator yang dapat mengimport file Excel.", "Akses Ditolak", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
             var ofd = new OpenFileDialog
             {
                 Title = "Pilih File Laporan Excel",
                 Filter = "File Excel (*.xlsx;*.xlsm)|*.xlsx;*.xlsm|Semua File (*.*)|*.*"
             };
-
             if (ofd.ShowDialog() == true)
-            {
                 await ImportAndCacheAsync(ofd.FileName);
-            }
         }
 
-        /// <summary>
-        /// Mengimport file baru, mendeteksi bulan dari nama file, menyimpan ke cache AppData,
-        /// dan memuat datanya ke memori.
-        /// </summary>
         public async Task ImportAndCacheAsync(string filePath)
         {
             try
@@ -427,33 +419,32 @@ namespace LaporanProduktivitasWPF.ViewModels
 
                 var parsed = await Task.Run(() => ExcelService.ParseExcelFile(filePath));
 
-                // Deteksi nama bulan dari nama file
                 string monthKey = ExcelService.ExtractMonthFromFileName(origFileName);
                 if (string.IsNullOrEmpty(monthKey))
-                {
-                    // Gunakan nama file tanpa ekstensi sebagai kunci
                     monthKey = Path.GetFileNameWithoutExtension(origFileName).ToUpperInvariant();
-                }
 
-                // Tentukan sheet terbaik — prioritas "L028D", fallback ke sheet pertama
                 string bestSheet = PickBestSheet(parsed.SheetNames);
-                int totalRows = bestSheet != "" && parsed.Sheets.ContainsKey(bestSheet)
-                    ? parsed.Sheets[bestSheet].Rows.Count : 0;
+                List<RawRow> rows = bestSheet != "" && parsed.Sheets.ContainsKey(bestSheet)
+                    ? parsed.Sheets[bestSheet].Rows
+                    : new List<RawRow>();
+                int totalRows = rows.Count;
 
-                // Simpan file ke cache AppData
-                StatusMessage = "Menyimpan data bulan " + monthKey + " ke cache...";
-                await Task.Run(() => StorageService.SaveMonthFile(monthKey, filePath, bestSheet, totalRows));
+                // Simpan ke PostgreSQL
+                StatusMessage = "Menyimpan " + totalRows.ToString("N0") + " baris ke database...";
+                string labelDisplay = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthKey.ToLowerInvariant());
+                await DatabaseService.SaveMonthDataAsync(monthKey, labelDisplay, origFileName, bestSheet, totalRows,
+                    _currentUser?.Username ?? "", rows);
 
-                // Muat data ke memori
-                FileName = parsed.FileName;
+                // Muat ke memori
+                FileName = origFileName;
                 _sheetsData = parsed.Sheets;
                 ActiveMonthKey = monthKey;
 
                 SheetNames.Clear();
                 foreach (var name in parsed.SheetNames) SheetNames.Add(name);
-
                 ActiveSheet = bestSheet;
-                RefreshSavedMonths();
+
+                await RefreshSavedMonthsAsync();
                 StatusMessage = "✅ Data bulan " + monthKey + " berhasil disimpan — " + totalRows.ToString("N0") + " baris.";
                 ActiveTab = "dashboard";
             }
@@ -462,73 +453,55 @@ namespace LaporanProduktivitasWPF.ViewModels
                 MessageBox.Show("Gagal mengimport file Excel: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 StatusMessage = "Gagal mengimport file.";
             }
-            finally
-            {
-                IsLoading = false;
-            }
+            finally { IsLoading = false; }
         }
 
-        /// <summary>
-        /// Beralih ke bulan yang sudah di-cache tanpa import ulang.
-        /// </summary>
         private async Task SwitchToMonthAsync(string monthKey)
         {
             try
             {
-                string cachedPath = StorageService.GetMonthFilePath(monthKey);
-                if (string.IsNullOrEmpty(cachedPath))
+                IsLoading = true;
+                StatusMessage = "Memuat data bulan " + monthKey + " dari database...";
+
+                // Ambil metadata bulan
+                var months = await DatabaseService.GetSavedMonthsAsync();
+                var meta = months.FirstOrDefault(m => string.Equals(m.Key, monthKey, StringComparison.OrdinalIgnoreCase));
+                if (meta == null)
                 {
-                    MessageBox.Show("File data bulan " + monthKey + " tidak ditemukan. Silakan import ulang.", "Data Tidak Ditemukan", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Data bulan " + monthKey + " tidak ditemukan di database.", "Data Tidak Ditemukan", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
-                await LoadExcelFromPathAsync(cachedPath, monthKey);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Gagal memuat data bulan: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
 
-        /// <summary>
-        /// Memuat file Excel ke memori tanpa menyimpan ke cache.
-        /// </summary>
-        private async Task LoadExcelFromPathAsync(string filePath, string monthKey)
-        {
-            try
-            {
-                IsLoading = true;
-                StatusMessage = "Memuat data bulan " + monthKey + "...";
+                // Muat baris dari PostgreSQL
+                string sheetName = meta.DefaultSheet ?? "L028D";
+                var rows = await DatabaseService.LoadMonthRowsAsync(monthKey, sheetName);
 
-                var parsed = await Task.Run(() => ExcelService.ParseExcelFile(filePath));
+                // Bangun struktur ExcelSheetData
+                _sheetsData = new Dictionary<string, ExcelSheetData>(StringComparer.OrdinalIgnoreCase);
+                if (rows.Count > 0)
+                {
+                    var headers = new List<string>(rows[0].Cells.Keys);
+                    _sheetsData[sheetName] = new ExcelSheetData { Headers = headers, Rows = rows };
+                }
 
-                FileName = parsed.FileName;
-                _sheetsData = parsed.Sheets;
-                ActiveMonthKey = monthKey;
-
+                FileName = meta.FileName ?? monthKey;
                 SheetNames.Clear();
-                foreach (var name in parsed.SheetNames) SheetNames.Add(name);
+                SheetNames.Add(sheetName);
+                ActiveMonthKey = monthKey;
+                ActiveSheet = sheetName;
 
-                string bestSheet = PickBestSheet(parsed.SheetNames);
-                ActiveSheet = bestSheet;
-                StatusMessage = "✅ Menampilkan data bulan " + monthKey + " — " + RowCount.ToString("N0") + " baris.";
+                StatusMessage = "✅ Data bulan " + monthKey + " — " + rows.Count.ToString("N0") + " baris.";
                 ActiveTab = "dashboard";
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Gagal memuat file: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                StatusMessage = "Gagal memuat file.";
+                MessageBox.Show("Gagal memuat data: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusMessage = "Gagal memuat data bulan.";
             }
-            finally
-            {
-                IsLoading = false;
-            }
+            finally { IsLoading = false; }
         }
 
-        // Keep backward compatibility
-        public async Task LoadExcelAsync(string filePath)
-        {
-            await ImportAndCacheAsync(filePath);
-        }
+        public async Task LoadExcelAsync(string filePath) => await ImportAndCacheAsync(filePath);
 
         /// <summary>
         /// Memilih sheet terbaik dari daftar sheet yang tersedia.
@@ -814,8 +787,22 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private void SaveManualLogsToStorage()
         {
-            StorageService.SaveManualLogs(_manualLogs.Values);
-            StatusMessage = "Input tersimpan otomatis (" + DateTime.Now.ToString("HH:mm:ss") + ")";
+            // Fire-and-forget async save to PostgreSQL
+            _ = SaveManualLogsToDatabaseAsync();
+        }
+
+        private async Task SaveManualLogsToDatabaseAsync()
+        {
+            try
+            {
+                string who = _currentUser?.Username ?? "";
+                await DatabaseService.SaveAllManualLogsAsync(_manualLogs.Values, who);
+                StatusMessage = "✅ Input tersimpan ke database (" + DateTime.Now.ToString("HH:mm:ss") + ")";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "⚠️ Gagal menyimpan: " + ex.Message;
+            }
         }
 
         private void ExportExactPivot()
