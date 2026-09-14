@@ -1,16 +1,29 @@
 {
     "CodeGPT.apiKey": "CodeGPT Plus Beta",
     "dotnet.defaultSolution": "LaporanProduktivitasAdmin.sln",
-    "dotnetAcquisitionExtension.existingPaths": {
-        "dotnet": "C:\\Users\\JUAL\\.dotnet\\dotnet.exe"
-    },
-    "omnisharp.dotNetCliPaths": [
-        "C:\\Users\\JUAL\\.dotnet"
-    ],
+
+    // Beritahu ekstensi bahwa .NET sudah terinstall — jangan download lagi
     "dotnetAcquisitionExtension.existingDotnetPath": [
         {
             "extensionId": "ms-dotnettools.csharp",
             "path": "C:\\Users\\JUAL\\.dotnet\\dotnet.exe"
+        },
+        {
+            "extensionId": "ms-dotnettools.csdevkit",
+            "path": "C:\\Users\\JUAL\\.dotnet\\dotnet.exe"
+        },
+        {
+            "extensionId": "ms-dotnettools.vscodeintellicode-csharp",
+            "path": "C:\\Users\\JUAL\\.dotnet\\dotnet.exe"
         }
-    ]
+    ],
+
+    // OmniSharp path
+    "omnisharp.dotNetCliPaths": [
+        "C:\\Users\\JUAL\\.dotnet"
+    ],
+    "omnisharp.useModernNet": true,
+
+    // Cegah auto-acquire .NET runtime oleh ekstensi
+    "dotnetAcquisitionExtension.enableTelemetry": false
 }

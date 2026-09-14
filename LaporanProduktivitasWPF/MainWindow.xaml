@@ -622,7 +622,7 @@
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                 <TextBlock Text="👥 Ringkasan Performa Tim Fakturis" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
                                 <TextBlock Text="{Binding AdminInvoiceTotalNota, StringFormat='{}   |   Total Nota Tim: {0:N0}'}" FontSize="12" Foreground="{StaticResource BrandPrimaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
-                                <TextBlock Text="  (AKBAR, DIDIN, JOE, RONI, NOVIANI)" FontSize="11" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="  (AKBAR, DIDIN, JOE, RONI, NOVIANI, STEVI, GINA)" FontSize="11" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                             <DataGrid ItemsSource="{Binding AdminInvoiceMetrics}" AutoGenerateColumns="False" CanUserAddRows="False"
                                       IsReadOnly="True" MaxHeight="200" Background="{StaticResource CardDarkBrush}"

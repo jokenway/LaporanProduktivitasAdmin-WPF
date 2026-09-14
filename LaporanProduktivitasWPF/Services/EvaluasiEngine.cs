@@ -40,7 +40,7 @@ namespace LaporanProduktivitasWPF.Services
     {
         public static readonly HashSet<string> ADMIN_INVOICE_USERS = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "AKBAR", "DIDIN", "JOE", "RONI", "NOVIANI"
+            "AKBAR", "DIDIN", "JOE", "RONI", "NOVIANI", "STEVI", "GINA"
         };
 
         public static EvaluasiResult BuildDailyEvaluation(

@@ -715,7 +715,7 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private void RefreshEvaluasi()
         {
-            // Always filter to ADMIN_INVOICE users only (AKBAR, DIDIN, JOE, RONI, NOVIANI)
+            // Always filter to ADMIN_INVOICE users only (AKBAR, DIDIN, JOE, RONI, NOVIANI, STEVI, GINA)
             // EvalSelectedUser can still narrow within that group
             var res = EvaluasiEngine.BuildDailyEvaluation(
                 _currentRows,
@@ -894,7 +894,7 @@ namespace LaporanProduktivitasWPF.ViewModels
         {
             var rows = new List<RawRow>();
             var rnd = new Random(42);
-            string[] users = new string[] { "AKBAR", "DIDIN", "JOE", "RONI", "NOVIANI", "SUSANTO", "HERI" };
+            string[] users = new string[] { "AKBAR", "DIDIN", "JOE", "RONI", "NOVIANI", "STEVI", "GINA" };
             string[] sales = new string[] { "AGUS", "BUDI", "CHARLES", "DENI", "EKO" };
             string[] dates = new string[] { "01-07-2026", "02-07-2026", "03-07-2026", "04-07-2026", "05-07-2026" };
 
