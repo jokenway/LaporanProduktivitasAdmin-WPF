@@ -826,9 +826,18 @@ namespace LaporanProduktivitasWPF.ViewModels
                 it.PropertyChanged += (s, e) =>
                 {
                     var item = (EvaluasiItem)s;
-                    // Jika Viewer (ST), abaikan perubahan
-                    if (_currentUser != null && !_currentUser.CanInputAttendance && !_currentUser.CanInputNotaSalah)
+                    if (_currentUser == null) return;
+
+                    // 1. Jika Viewer (ST) -> abaikan perubahan
+                    if (!_currentUser.CanInputAttendance && !_currentUser.CanInputNotaSalah)
                         return;
+
+                    // 2. Jika Staff (misal: JOE, DIDIN, RONI, NOVIANI, STEVI, GINA) -> HANYA boleh edit baris namanya sendiri!
+                    if (!string.Equals(_currentUser.Username, "AKBAR", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!string.Equals(item.User, _currentUser.Username, StringComparison.OrdinalIgnoreCase))
+                            return;
+                    }
 
                     _manualLogs[item.Key] = item;
                     SaveManualLogsToStorage();

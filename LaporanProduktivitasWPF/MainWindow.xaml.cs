@@ -47,10 +47,13 @@ namespace LaporanProduktivitasWPF
         {
             if (_vm == null || _vm.CurrentUser == null) return;
 
+            var item = e.Row.Item as EvaluasiItem;
+            if (item == null) return;
+
             string header = e.Column.Header?.ToString() ?? "";
+            string loggedInUser = _vm.CurrentUser.Username ?? "";
 
             // 1. Kolom "Nota Salah": HANYA USER AKBAR yang boleh menginput/mengedit!
-            // Jika user BUKAN AKBAR -> kunci total (cell tidak bisa diklik / diketik sama sekali)
             if (header.Contains("Nota Salah"))
             {
                 if (!_vm.CurrentUser.CanInputNotaSalah)
@@ -65,6 +68,18 @@ namespace LaporanProduktivitasWPF
             {
                 e.Cancel = true;
                 return;
+            }
+
+            // 3. Jika Staff (misal: JOE, DIDIN, RONI, NOVIANI, STEVI, GINA):
+            //    HANYA boleh menginput/mengedit jam datang, jam pulang, & catatan pada BARIS MILIKNYA SENDIRI!
+            //    Jika AKBAR -> boleh edit baris siapa saja.
+            if (!string.Equals(loggedInUser, "AKBAR", System.StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.Equals(item.User, loggedInUser, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    e.Cancel = true;
+                    return;
+                }
             }
         }
     }
