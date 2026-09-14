@@ -276,6 +276,10 @@ namespace LaporanProduktivitasWPF.ViewModels
         public ICommand SaveChangesCommand { get; private set; }
         public ICommand SwitchMonthCommand { get; private set; }
         public ICommand DeleteMonthCommand { get; private set; }
+        public ICommand LogoutCommand { get; private set; }
+
+        /// <summary>Dipicu saat user klik logout — MainWindow subscribe untuk menangani.</summary>
+        public event EventHandler LogoutRequested;
 
         public MainViewModel(AppUser currentUser)
         {
@@ -339,6 +343,11 @@ namespace LaporanProduktivitasWPF.ViewModels
                     }
                     await RefreshSavedMonthsAsync();
                 }
+            });
+
+            LogoutCommand = new RelayCommand(() =>
+            {
+                LogoutRequested?.Invoke(this, EventArgs.Empty);
             });
 
             // Load data dari database (async, tanpa blocking UI)

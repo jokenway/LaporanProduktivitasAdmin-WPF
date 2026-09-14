@@ -18,6 +18,9 @@ namespace LaporanProduktivitasWPF
             DispatcherUnhandledException += App_DispatcherUnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
+            // Cegah WPF auto-shutdown saat LoginWindow ditutup
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
             // 1. Baca konfigurasi koneksi (hardcoded default)
             var config = LoadOrCreateConfig();
 
@@ -48,8 +51,10 @@ namespace LaporanProduktivitasWPF
                 return;
             }
 
-            // 4. Buka Main window dengan user yang sudah login
+            // 4. Buka Main window — set ke OnLastWindowClose agar tutup normal
+            ShutdownMode = ShutdownMode.OnLastWindowClose;
             var main = new MainWindow(login.LoggedInUser);
+            MainWindow = main;
             main.Show();
         }
 

@@ -62,13 +62,30 @@
                     <TextBlock Text="{Binding FileName}" FontWeight="Bold" Foreground="{StaticResource BrandPrimaryBrush}" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding RowCount, StringFormat='{}({0:N0} baris)'}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
                     <!-- User yang login -->
-                    <Border Background="#1E293B" CornerRadius="8" Padding="10,4">
+                    <Border Background="#1E293B" CornerRadius="8" Padding="10,4" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="👤 " FontSize="12" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding CurrentUserDisplay}" FontSize="12" FontWeight="Bold"
                                        Foreground="{StaticResource BrandPrimaryBrush}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
+                    <!-- Tombol Logout -->
+                    <Button Content="🔓 Logout" Command="{Binding LogoutCommand}"
+                            Height="28" Padding="10,0" FontSize="11" FontWeight="SemiBold"
+                            Background="#7F1D1D" Foreground="White" BorderThickness="0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="#991B1B"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
