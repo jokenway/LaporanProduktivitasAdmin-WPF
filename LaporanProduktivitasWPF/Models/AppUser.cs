@@ -11,13 +11,15 @@ namespace LaporanProduktivitasWPF.Models
         public string Role { get; set; }   // "admin" | "staff" | "viewer"
 
         /// <summary>Hanya admin (AKBAR) yang bisa mengimport file Excel.</summary>
-        public bool CanImport => string.Equals(Role, "admin", StringComparison.OrdinalIgnoreCase);
+        public bool CanImport => string.Equals(Username, "AKBAR", StringComparison.OrdinalIgnoreCase) || string.Equals(Role, "admin", StringComparison.OrdinalIgnoreCase);
 
-        /// <summary>Hanya admin (AKBAR) yang bisa menginput Nota Salah.</summary>
-        public bool CanInputNotaSalah => string.Equals(Role, "admin", StringComparison.OrdinalIgnoreCase);
+        /// <summary>HANYA user AKBAR yang bisa menginput/mengedit Nota Salah.</summary>
+        public bool CanInputNotaSalah => string.Equals(Username, "AKBAR", StringComparison.OrdinalIgnoreCase);
+        public bool IsReadOnlyNotaSalah => !CanInputNotaSalah;
 
-        /// <summary>Staff dan admin bisa input Jam Datang/Pulang dan Keterangan.</summary>
+        /// <summary>Staff dan AKBAR bisa input Jam Datang, Jam Pulang, dan Keterangan. Viewer (ST) tidak bisa.</summary>
         public bool CanInputAttendance => !string.Equals(Role, "viewer", StringComparison.OrdinalIgnoreCase);
+        public bool IsReadOnlyAttendance => !CanInputAttendance;
 
         /// <summary>Semua role bisa melihat semua tab.</summary>
         public bool CanViewAll => true;

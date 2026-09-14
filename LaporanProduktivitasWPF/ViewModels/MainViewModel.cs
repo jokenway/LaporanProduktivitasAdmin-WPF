@@ -784,6 +784,9 @@ namespace LaporanProduktivitasWPF.ViewModels
                 it.PropertyChanged += (s, e) =>
                 {
                     var item = (EvaluasiItem)s;
+                    // Jika Viewer (ST), abaikan perubahan
+                    if (_currentUser != null && !_currentUser.CanInputAttendance && !_currentUser.CanInputNotaSalah)
+                        return;
                     _manualLogs[item.Key] = item;
                     SaveManualLogsToStorage();
                 };

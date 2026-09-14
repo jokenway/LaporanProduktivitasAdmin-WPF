@@ -596,9 +596,14 @@
                                                 HeaderStyle="{StaticResource TableHeaderStyle}" />
                             <DataGridTextColumn Header="Nota Dibuat" Binding="{Binding TotalNota}" IsReadOnly="True" Width="95"
                                                 HeaderStyle="{StaticResource TableHeaderStyle}" />
-                            <DataGridTextColumn Header="✏️ Nota Salah (Input)" Binding="{Binding NotaSalah, UpdateSourceTrigger=LostFocus}" Width="130"
+                            <!-- Nota Salah: HANYA bisa diisi oleh AKBAR -->
+                            <DataGridTextColumn Header="✏️ Nota Salah" Binding="{Binding NotaSalah, UpdateSourceTrigger=LostFocus}" Width="130"
+                                                IsReadOnly="{Binding DataContext.CurrentUser.IsReadOnlyNotaSalah, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 HeaderStyle="{StaticResource RoseHeaderStyle}" />
+
+                            <!-- Jam Datang: Bisa diisi AKBAR & Staff (Viewer ReadOnly) -->
                             <DataGridTextColumn Header="✏️ Jam Datang (jam:menit)" Binding="{Binding JamDatang, UpdateSourceTrigger=LostFocus}" Width="145"
+                                                IsReadOnly="{Binding DataContext.CurrentUser.IsReadOnlyAttendance, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 HeaderStyle="{StaticResource AmberHeaderStyle}">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
@@ -619,7 +624,10 @@
                                     </Style>
                                 </DataGridTextColumn.EditingElementStyle>
                             </DataGridTextColumn>
+
+                            <!-- Jam Pulang: Bisa diisi AKBAR & Staff (Viewer ReadOnly) -->
                             <DataGridTextColumn Header="✏️ Jam Pulang (jam:menit)" Binding="{Binding JamPulang, UpdateSourceTrigger=LostFocus}" Width="145"
+                                                IsReadOnly="{Binding DataContext.CurrentUser.IsReadOnlyAttendance, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 HeaderStyle="{StaticResource AmberHeaderStyle}">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
@@ -640,9 +648,13 @@
                                     </Style>
                                 </DataGridTextColumn.EditingElementStyle>
                             </DataGridTextColumn>
+
                             <DataGridTextColumn Header="Durasi" Binding="{Binding DurasiText}" IsReadOnly="True" Width="120"
                                                 HeaderStyle="{StaticResource TableHeaderStyle}" />
+
+                            <!-- Catatan: Bisa diisi AKBAR & Staff (Viewer ReadOnly) -->
                             <DataGridTextColumn Header="✏️ Catatan / Keterangan" Binding="{Binding Keterangan, UpdateSourceTrigger=LostFocus}" Width="*"
+                                                IsReadOnly="{Binding DataContext.CurrentUser.IsReadOnlyAttendance, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 HeaderStyle="{StaticResource AmberHeaderStyle}" />
                         </DataGrid.Columns>
                     </DataGrid>
