@@ -43,8 +43,8 @@
                     <StackPanel VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Laporan Produktivitas Admin" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
-                            <Border Background="#1E1B4B" BorderBrush="{StaticResource BrandSecondaryBrush}" BorderThickness="1" CornerRadius="10" Margin="8,0,0,0" Padding="6,1">
-                                <TextBlock Text="WPF Studio Native" FontSize="10" FontWeight="Bold" Foreground="#A5B4FC" />
+                            <Border Background="#EEF2FF" BorderBrush="{StaticResource BrandSecondaryBrush}" BorderThickness="1" CornerRadius="10" Margin="8,0,0,0" Padding="6,1">
+                                <TextBlock Text="WPF Studio Native" FontSize="10" FontWeight="Bold" Foreground="#4338CA" />
                             </Border>
                         </StackPanel>
                         <TextBlock Text="Kalkulasi Otomatis No. Invoice per User, Tanggal, Jam Kerja &amp; Akurasi" FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
@@ -62,7 +62,7 @@
                     <TextBlock Text="{Binding FileName}" FontWeight="Bold" Foreground="{StaticResource BrandPrimaryBrush}" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding RowCount, StringFormat='{}({0:N0} baris)'}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
                     <!-- User yang login -->
-                    <Border Background="#1E293B" CornerRadius="8" Padding="10,4" Margin="0,0,8,0">
+                    <Border Background="#F1F5F9" CornerRadius="8" Padding="10,4" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="👤 " FontSize="12" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding CurrentUserDisplay}" FontSize="12" FontWeight="Bold"
@@ -91,7 +91,7 @@
         </Border>
 
         <!-- ROW 1: NAVIGATION TABS -->
-        <Border Grid.Row="1" Background="#090E17" Padding="16,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1">
+        <Border Grid.Row="1" Background="#F8FAFC" Padding="16,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal">
                 <Button Content="📊 Dashboard" Command="{Binding SwitchTabCommand}" CommandParameter="dashboard"
                         Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
@@ -105,7 +105,7 @@
         </Border>
 
         <!-- ROW 2: MONTH TAB BAR (seperti sheet tabs Excel) -->
-        <Border Grid.Row="2" Background="#060B14" Padding="12,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,2">
+        <Border Grid.Row="2" Background="#FFFFFF" Padding="12,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,2">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -145,7 +145,7 @@
                                                         </Border>
                                                         <ControlTemplate.Triggers>
                                                             <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="bd" Property="Background" Value="#0F172A" />
+                                                                <Setter TargetName="bd" Property="Background" Value="#F1F5F9" />
                                                                 <Setter Property="Foreground" Value="{StaticResource TextLightBrush}" />
                                                             </Trigger>
                                                         </ControlTemplate.Triggers>
@@ -154,7 +154,7 @@
                                             </Setter>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsActiveMonth}" Value="True">
-                                                    <Setter Property="Background" Value="#0F172A" />
+                                                    <Setter Property="Background" Value="#F1F5F9" />
                                                     <Setter Property="Foreground" Value="{StaticResource BrandPrimaryBrush}" />
                                                     <Setter Property="BorderBrush" Value="{StaticResource BrandPrimaryBrush}" />
                                                     <Setter Property="FontWeight" Value="Bold" />
@@ -164,7 +164,7 @@
                                     </Button.Style>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding Label}" />
-                                        <Border Background="#1E293B" CornerRadius="4" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center">
+                                        <Border Background="#E2E8F0" CornerRadius="4" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding RowCount, StringFormat='{}{0:N0}'}"
                                                        FontSize="10" Foreground="{StaticResource TextMutedBrush}" />
                                         </Border>
@@ -201,17 +201,17 @@
                 <!-- 1. DASHBOARD VIEW -->
                 <StackPanel Visibility="{Binding IsDashboardActive, Converter={StaticResource BoolToVis}}">
                     <!-- Hero Banner -->
-                    <Border Background="#030712" BorderBrush="#1F2937" BorderThickness="1" CornerRadius="16" Padding="24" Margin="0,0,0,20">
+                    <Border Background="#FFFFFF" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="16" Padding="24" Margin="0,0,0,20">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <Border Background="#1E3A8A" CornerRadius="10" Padding="8,3" HorizontalAlignment="Left" Margin="0,0,0,8">
-                                    <TextBlock Text="● RINGKASAN PRODUKTIVITAS" Foreground="#93C5FD" FontSize="11" FontWeight="Bold" />
+                                <Border Background="#E0F2FE" CornerRadius="10" Padding="8,3" HorizontalAlignment="Left" Margin="0,0,0,8">
+                                    <TextBlock Text="● RINGKASAN PRODUKTIVITAS" Foreground="#0369A1" FontSize="11" FontWeight="Bold" />
                                 </Border>
-                                <TextBlock Text="Pantau Ritme Kerja Tim Fakturis" FontSize="26" FontWeight="ExtraBold" Foreground="#FFFFFF" Margin="0,0,0,6" />
+                                <TextBlock Text="Pantau Ritme Kerja Tim Fakturis" FontSize="26" FontWeight="ExtraBold" Foreground="{StaticResource TextLightBrush}" Margin="0,0,0,6" />
                                 <TextBlock Text="Gambaran cepat performa volume nota, tingkat akurasi, dan tren harian admin dari data Excel aktif." 
                                            FontSize="13" Foreground="{StaticResource TextMutedBrush}" />
                             </StackPanel>
@@ -219,7 +219,7 @@
                                 <Border BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1,0,0,0" Padding="16,0,0,0">
                                     <StackPanel>
                                         <TextBlock Text="PERIODE TANGGAL" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
-                                        <TextBlock Text="{Binding LatestDate, StringFormat='{}s/d {0}'}" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,2,0,0" />
+                                        <TextBlock Text="{Binding LatestDate, StringFormat='{}s/d {0}'}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" Margin="0,2,0,0" />
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -280,7 +280,7 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding Label}" FontWeight="Bold" VerticalAlignment="Center" Foreground="{StaticResource TextLightBrush}" />
                                             <ProgressBar Grid.Column="1" Value="{Binding Percentage}" Maximum="100" Height="16" VerticalAlignment="Center" 
-                                                         Foreground="{StaticResource BrandPrimaryBrush}" Background="#0F172A" BorderThickness="0" Margin="0,0,12,0" />
+                                                         Foreground="{StaticResource BrandPrimaryBrush}" Background="#F1F5F9" BorderThickness="0" Margin="0,0,12,0" />
                                             <TextBlock Grid.Column="2" Text="{Binding Value, StringFormat='{}{0:N0} Nota'}" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}" />
                                         </Grid>
                                     </DataTemplate>
@@ -339,7 +339,7 @@
                                                 BorderThickness="1">
                                             <Border.Style>
                                                 <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="#0F172A" />
+                                                    <Setter Property="Background" Value="#F8FAFC" />
                                                     <Setter Property="BorderBrush" Value="{StaticResource BorderDarkBrush}" />
                                                 </Style>
                                             </Border.Style>
@@ -394,9 +394,9 @@
                     </Border>
 
                     <!-- Tip -->
-                    <Border Background="#0C1A2E" CornerRadius="8" Padding="14,10" Margin="0,12,0,0"
-                            BorderBrush="#1E3A5F" BorderThickness="1">
-                        <TextBlock FontSize="11" Foreground="#60A5FA" TextWrapping="Wrap">
+                    <Border Background="#EFF6FF" CornerRadius="8" Padding="14,10" Margin="0,12,0,0"
+                            BorderBrush="#BFDBFE" BorderThickness="1">
+                        <TextBlock FontSize="11" Foreground="#1D4ED8" TextWrapping="Wrap">
                             <Run FontWeight="Bold">💡 Tips:</Run>
                             <Run>Format nama file yang didukung: </Run>
                             <Run FontWeight="Bold">"NAMA BULAN - CLOSING.xlsx"</Run>
@@ -452,7 +452,7 @@
                     <DataGrid ItemsSource="{Binding ExactPivotItems}" AutoGenerateColumns="False" CanUserAddRows="False"
                               IsReadOnly="True" MaxHeight="380" Background="{StaticResource CardDarkBrush}"
                               Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
-                              AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
+                              AlternatingRowBackground="#F8FAFC" GridLinesVisibility="Horizontal"
                               HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column"
                               BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1"
                               EnableRowVirtualization="True" EnableColumnVirtualization="True"
@@ -471,7 +471,7 @@
                     </DataGrid>
 
                     <!-- Summary Bottom Bar -->
-                    <Border Background="#090E17" CornerRadius="8" Padding="14" Margin="0,10,0,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                    <Border Background="#F1F5F9" CornerRadius="8" Padding="14" Margin="0,10,0,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <TextBlock Text="Total Nota: " Foreground="{StaticResource TextMutedBrush}" />
                             <TextBlock Text="{Binding TotalNota, StringFormat='{}{0:N0} Nota'}" FontWeight="Bold" Foreground="{StaticResource BrandPrimaryBrush}" Margin="0,0,24,0" />
@@ -492,7 +492,7 @@
                             <DataGrid ItemsSource="{Binding ExactUserSummaryItems}" AutoGenerateColumns="False" CanUserAddRows="False"
                                       IsReadOnly="True" MaxHeight="220" Background="{StaticResource CardDarkBrush}"
                                       Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
-                                      AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
+                                      AlternatingRowBackground="#F8FAFC" GridLinesVisibility="Horizontal"
                                       HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column"
                                       BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1"
                                       ColumnHeaderStyle="{StaticResource TableHeaderStyle}">
@@ -510,16 +510,16 @@
                 <!-- 4. KINERJA & ABSENSI VIEW -->
                 <StackPanel Visibility="{Binding IsEvaluasiActive, Converter={StaticResource BoolToVis}}">
                     <!-- Top Action Banner -->
-                    <Border Background="#1E1B4B" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="{StaticResource BrandSecondaryBrush}" BorderThickness="1">
+                    <Border Background="#EEF2FF" CornerRadius="12" Padding="16" Margin="0,0,0,16" BorderBrush="#C7D2FE" BorderThickness="1">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="Monitoring Kinerja &amp; Jam Kerja Admin" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" />
+                                <TextBlock Text="Monitoring Kinerja &amp; Jam Kerja Admin" FontSize="18" FontWeight="Bold" Foreground="#1E1B4B" />
                                 <TextBlock Text="Ketik langsung jumlah Nota Salah, Jam Datang, dan Jam Pulang pada tabel. Data tersimpan otomatis." 
-                                           FontSize="11" Foreground="#C7D2FE" Margin="0,2,0,0" />
+                                           FontSize="11" Foreground="#4338CA" Margin="0,2,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <Button Content="⚡ Isi Jam Standar (08-17)" Command="{Binding ApplyDefaultHoursCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
@@ -552,7 +552,7 @@
                         <Border Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="12" Margin="0,0,8,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
                             <StackPanel>
                                 <TextBlock Text="TOTAL JAM KERJA" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
-                                <TextBlock Text="{Binding EvalTotalJamText}" FontSize="18" FontWeight="Bold" Foreground="#38BDF8" Margin="0,6,0,0" />
+                                <TextBlock Text="{Binding EvalTotalJamText}" FontSize="18" FontWeight="Bold" Foreground="#0284C7" Margin="0,6,0,0" />
                             </StackPanel>
                         </Border>
                         <Border Background="{StaticResource CardDarkBrush}" CornerRadius="10" Padding="12" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
@@ -582,7 +582,7 @@
                               BeginningEdit="OnEvaluasiGridBeginningEdit"
                               MaxHeight="360" Background="{StaticResource CardDarkBrush}"
                               Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
-                              AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
+                              AlternatingRowBackground="#F8FAFC" GridLinesVisibility="Horizontal"
                               HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column"
                               BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1"
                               EnableRowVirtualization="True" EnableColumnVirtualization="True"
@@ -671,7 +671,7 @@
                             <DataGrid ItemsSource="{Binding AdminInvoiceMetrics}" AutoGenerateColumns="False" CanUserAddRows="False"
                                       IsReadOnly="True" MaxHeight="200" Background="{StaticResource CardDarkBrush}"
                                       Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
-                                      AlternatingRowBackground="#162032" GridLinesVisibility="Horizontal"
+                                      AlternatingRowBackground="#F8FAFC" GridLinesVisibility="Horizontal"
                                       HorizontalGridLinesBrush="{StaticResource BorderDarkBrush}" HeadersVisibility="Column"
                                       BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1"
                                       ColumnHeaderStyle="{StaticResource TableHeaderStyle}">
@@ -727,10 +727,10 @@
         </ScrollViewer>
 
         <!-- ROW 4: STATUS BAR -->
-        <Border Grid.Row="4" Background="#0B1120" Padding="16,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,1,0,0">
+        <Border Grid.Row="4" Background="#FFFFFF" Padding="16,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,1,0,0">
             <Grid>
                 <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" />
-                <TextBlock Text="Laporan Produktivitas Admin • .NET 8 WPF Studio" HorizontalAlignment="Right" Foreground="#475569" FontSize="11" />
+                <TextBlock Text="Laporan Produktivitas Admin • .NET 8 WPF Studio" HorizontalAlignment="Right" Foreground="#64748B" FontSize="11" />
             </Grid>
         </Border>
     </Grid>
