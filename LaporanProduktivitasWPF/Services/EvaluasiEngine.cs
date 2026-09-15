@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using LaporanProduktivitasWPF.Models;
 
 namespace LaporanProduktivitasWPF.Services
@@ -43,6 +45,46 @@ namespace LaporanProduktivitasWPF.Services
             "AKBAR", "DIDIN", "JOE", "RONI", "NOVIANI", "STEVI", "GINA"
         };
 
+        public static DateTime? TryParseDate(string dateStr)
+        {
+            if (string.IsNullOrWhiteSpace(dateStr)) return null;
+
+            string s = dateStr.Trim();
+            for (int i = 0; i < ExcelService.INDONESIAN_MONTHS.Length; i++)
+            {
+                string mName = ExcelService.INDONESIAN_MONTHS[i];
+                if (s.ToUpperInvariant().Contains(mName))
+                {
+                    s = Regex.Replace(s, mName, (i + 1).ToString("D2"), RegexOptions.IgnoreCase);
+                    break;
+                }
+            }
+
+            string[] formats = new[]
+            {
+                "dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "d-M-yyyy",
+                "yyyy-MM-dd", "dd/MM/yy", "d/M/yy", "dd MM yyyy", "d M yyyy"
+            };
+
+            if (DateTime.TryParseExact(s, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dt))
+            {
+                return dt;
+            }
+
+            if (DateTime.TryParse(s, out dt))
+            {
+                return dt;
+            }
+
+            return null;
+        }
+
+        public static bool IsSunday(string dateStr)
+        {
+            var dt = TryParseDate(dateStr);
+            return dt.HasValue && dt.Value.DayOfWeek == DayOfWeek.Sunday;
+        }
+
         public static EvaluasiResult BuildDailyEvaluation(
             IEnumerable<RawRow> rows,
             Dictionary<string, EvaluasiItem> manualLogs,
@@ -58,6 +100,28 @@ namespace LaporanProduktivitasWPF.Services
             var dateSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var userSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+            // 1. Tentukan bulan dominan (target month) dari data baris Excel
+            var rowDates = new List<DateTime>();
+            foreach (var r in rows)
+            {
+                string d = r.Get("TGBON");
+                if (string.IsNullOrEmpty(d)) d = r.Get("Tanggal");
+                if (!string.IsNullOrWhiteSpace(d))
+                {
+                    var dt = TryParseDate(d);
+                    if (dt.HasValue) rowDates.Add(dt.Value);
+                }
+            }
+
+            int? targetMonth = null;
+            if (rowDates.Count > 0)
+            {
+                targetMonth = rowDates.GroupBy(dt => dt.Month)
+                                      .OrderByDescending(g => g.Count())
+                                      .First().Key;
+            }
+
+            // 2. Olah setiap baris Excel
             foreach (var r in rows)
             {
                 string u = r.Get("USID");
@@ -77,6 +141,14 @@ namespace LaporanProduktivitasWPF.Services
 
                 if (string.IsNullOrEmpty(u) || string.IsNullOrEmpty(d)) continue;
 
+                // Hilangkan tanggal yang jatuh pada HARI MINGGU
+                if (IsSunday(d)) continue;
+
+                // Abaikan tanggal jika bulannya tidak sesuai dengan bulan target file
+                var parsedD = TryParseDate(d);
+                if (targetMonth.HasValue && parsedD.HasValue && parsedD.Value.Month != targetMonth.Value)
+                    continue;
+
                 dateSet.Add(d);
                 userSet.Add(u);
 
@@ -94,27 +166,36 @@ namespace LaporanProduktivitasWPF.Services
                 }
             }
 
-            // Tambahkan juga tanggal dari manualLogs (jika ada input manual pada tanggal yang tidak ada transaksi)
+            // 3. Tambahkan tanggal dari manualLogs HANYA jika sesuai dengan bulan target dan BUKAN HARI MINGGU
             if (manualLogs != null)
             {
                 foreach (var k in manualLogs.Keys)
                 {
                     string[] parts = k.Split(new[] { "___" }, StringSplitOptions.None);
-                    if (parts.Length == 2 && !string.IsNullOrEmpty(parts[1]))
+                    if (parts.Length == 2 && !string.IsNullOrWhiteSpace(parts[1]))
                     {
-                        dateSet.Add(parts[1]);
+                        string d = parts[1].Trim();
+                        if (IsSunday(d)) continue;
+
+                        var parsedD = TryParseDate(d);
+                        if (targetMonth.HasValue && parsedD.HasValue && parsedD.Value.Month != targetMonth.Value)
+                            continue;
+
+                        dateSet.Add(d);
                     }
                 }
             }
 
             bool isAdminInvoiceGroup = string.Equals(userGroup, "ADMIN_INVOICE", StringComparison.OrdinalIgnoreCase);
 
-            // Jika grup ADMIN_INVOICE: Pastikan SETIAP TANGGAL memiliki baris untuk SEMUA 7 tim fakturis,
+            // 4. Jika grup ADMIN_INVOICE: Pastikan SETIAP TANGGAL (non-Minggu) memiliki baris untuk SEMUA 7 tim fakturis,
             // meskipun user tersebut tidak membuat nota sama sekali (TotalNota = 0)
             if (isAdminInvoiceGroup)
             {
                 foreach (var d in dateSet)
                 {
+                    if (IsSunday(d)) continue;
+
                     foreach (var u in ADMIN_INVOICE_USERS)
                     {
                         string key = u + "___" + d;
@@ -126,7 +207,9 @@ namespace LaporanProduktivitasWPF.Services
                 }
             }
 
-            result.AvailableDates = dateSet.OrderBy(x => x).ToList();
+            result.AvailableDates = dateSet
+                .OrderBy(d => TryParseDate(d) ?? DateTime.MinValue)
+                .ToList();
 
             if (isAdminInvoiceGroup)
                 result.AvailableUsers = ADMIN_INVOICE_USERS.OrderBy(u => u).ToList();
