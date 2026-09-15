@@ -730,7 +730,7 @@
         <Border Grid.Row="4" Background="#FFFFFF" Padding="16,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,1,0,0">
             <Grid>
                 <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource TextMutedBrush}" FontSize="11" />
-                <TextBlock Text="Laporan Produktivitas Admin • .NET 8 WPF Studio" HorizontalAlignment="Right" Foreground="#64748B" FontSize="11" />
+                <TextBlock Text="Laporan Produktivitas Admin • .NET 10 WPF Studio" HorizontalAlignment="Right" Foreground="#64748B" FontSize="11" />
             </Grid>
         </Border>
     </Grid>
