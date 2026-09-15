@@ -726,23 +726,26 @@
             </Grid>
         </ScrollViewer>
 
-        <!-- ROW 4: STATUS BAR WITH VISUAL LOADING -->
+        <!-- ROW 4: STATUS BAR WITH BOTTOM PROGRESS BAR (0% - 100%) -->
         <Border Grid.Row="4" Background="#FFFFFF" Padding="16,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,1,0,0">
             <Grid>
-                <!-- Top Progress Bar overlay on Status Bar -->
-                <ProgressBar IsIndeterminate="True" Height="3" VerticalAlignment="Top" Margin="-16,-6,-16,0"
-                             Background="Transparent" Foreground="{StaticResource BrandPrimaryBrush}" BorderThickness="0"
+                <!-- Top Progress Bar overlay on Status Bar (Animasi dari 0% ke 100%) -->
+                <ProgressBar Value="{Binding LoadingProgress}" Minimum="0" Maximum="100"
+                             Height="4" VerticalAlignment="Top" Margin="-16,-6,-16,0"
+                             Background="#E2E8F0" Foreground="{StaticResource BrandPrimaryBrush}" BorderThickness="0"
                              Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" />
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- Visual Loading Badge when IsLoading = True -->
+                    <!-- Visual Loading Badge with 0% to 100% progress -->
                     <Border Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" 
                             Background="#E0F2FE" BorderBrush="#7DD3FC" BorderThickness="1" CornerRadius="10" 
                             Padding="8,2" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <ProgressBar IsIndeterminate="True" Width="40" Height="6" Margin="0,0,6,0" VerticalAlignment="Center"
+                            <ProgressBar Value="{Binding LoadingProgress}" Minimum="0" Maximum="100" 
+                                         Width="45" Height="6" Margin="0,0,6,0" VerticalAlignment="Center"
                                          Foreground="{StaticResource BrandPrimaryBrush}" Background="#BAE6FD" BorderThickness="0"/>
-                            <TextBlock Text="🔄 Memuat Data..." FontSize="11" FontWeight="Bold" Foreground="#0369A1" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding LoadingProgress, StringFormat='{}🔄 Memuat {0:F0}%'}" 
+                                       FontSize="11" FontWeight="Bold" Foreground="#0369A1" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
@@ -752,28 +755,6 @@
                 <TextBlock Text="Laporan Produktivitas Admin • .NET 8 WPF Studio" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#64748B" FontSize="11" />
             </Grid>
         </Border>
-
-        <!-- GLOBAL VISUAL LOADING OVERLAY -->
-        <Grid Grid.Row="0" Grid.RowSpan="5" Background="#15000000"
-              Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
-              IsHitTestVisible="True">
-            <Border Background="#FFFFFF" CornerRadius="16" Padding="32,22"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="24" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.12"/>
-                </Border.Effect>
-                <StackPanel HorizontalAlignment="Center" Width="260">
-                    <ProgressBar IsIndeterminate="True" Height="6" Margin="0,0,0,14"
-                                 Foreground="{StaticResource BrandPrimaryBrush}" Background="#E2E8F0" BorderThickness="0"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="⏳ " FontSize="15" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding StatusMessage}" FontSize="12" FontWeight="Bold" 
-                                   Foreground="{StaticResource TextLightBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-        </Grid>
     </Grid>
 </Window>
 

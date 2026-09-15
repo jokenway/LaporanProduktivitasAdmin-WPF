@@ -78,6 +78,13 @@ namespace LaporanProduktivitasWPF.ViewModels
             set { _isLoading = value; OnPropertyChanged("IsLoading"); }
         }
 
+        private double _loadingProgress = 0;
+        public double LoadingProgress
+        {
+            get { return _loadingProgress; }
+            set { _loadingProgress = value; OnPropertyChanged("LoadingProgress"); }
+        }
+
         private string _statusMessage = "Siap.";
         public string StatusMessage
         {
@@ -373,6 +380,7 @@ namespace LaporanProduktivitasWPF.ViewModels
             try
             {
                 IsLoading = true;
+                LoadingProgress = 15;
                 StatusMessage = "Memperbarui data dari database PostgreSQL...";
 
                 string savedTab = ActiveTab;
@@ -383,6 +391,7 @@ namespace LaporanProduktivitasWPF.ViewModels
 
                 await Task.WhenAll(logsTask, monthsTask);
                 _manualLogs = await logsTask;
+                LoadingProgress = 50;
 
                 var metas = (await monthsTask)
                     .OrderBy(m => Array.IndexOf(ExcelService.INDONESIAN_MONTHS, m.Key))
@@ -392,6 +401,7 @@ namespace LaporanProduktivitasWPF.ViewModels
 
                 SavedMonths.Clear();
                 foreach (var m in metas) SavedMonths.Add(m);
+                LoadingProgress = 75;
 
                 // 2. Jika data bulan sudah di memori, cukup hitung ulang tanpa unduh ulang ribuan baris Excel dari database
                 if (_currentRows != null && _currentRows.Count > 0)
@@ -407,6 +417,7 @@ namespace LaporanProduktivitasWPF.ViewModels
                 if (!string.IsNullOrEmpty(savedTab))
                     ActiveTab = savedTab;
 
+                LoadingProgress = 100;
                 StatusMessage = "⚡ Data berhasil diperbarui (" + DateTime.Now.ToString("HH:mm:ss") + ")";
             }
             catch (Exception ex)
@@ -415,7 +426,9 @@ namespace LaporanProduktivitasWPF.ViewModels
             }
             finally
             {
+                await Task.Delay(200);
                 IsLoading = false;
+                LoadingProgress = 0;
             }
         }
 
@@ -476,10 +489,12 @@ namespace LaporanProduktivitasWPF.ViewModels
             try
             {
                 IsLoading = true;
+                LoadingProgress = 10;
                 string origFileName = Path.GetFileName(filePath);
                 StatusMessage = "Membaca file Excel: " + origFileName + "...";
 
                 var parsed = await Task.Run(() => ExcelService.ParseExcelFile(filePath));
+                LoadingProgress = 40;
 
                 string monthKey = ExcelService.ExtractMonthFromFileName(origFileName);
                 if (string.IsNullOrEmpty(monthKey))
@@ -490,12 +505,14 @@ namespace LaporanProduktivitasWPF.ViewModels
                     ? parsed.Sheets[bestSheet].Rows
                     : new List<RawRow>();
                 int totalRows = rows.Count;
+                LoadingProgress = 55;
 
                 // Simpan ke PostgreSQL di background thread
                 StatusMessage = "Menyimpan " + totalRows.ToString("N0") + " baris ke database...";
                 string labelDisplay = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthKey.ToLowerInvariant());
                 await Task.Run(() => DatabaseService.SaveMonthDataAsync(monthKey, labelDisplay, origFileName, bestSheet, totalRows,
                     _currentUser?.Username ?? "", rows));
+                LoadingProgress = 85;
 
                 // Muat ke memori
                 FileName = origFileName;
@@ -507,6 +524,7 @@ namespace LaporanProduktivitasWPF.ViewModels
                 ActiveSheet = bestSheet;
 
                 await RefreshSavedMonthsAsync();
+                LoadingProgress = 100;
                 StatusMessage = "✅ Data bulan " + monthKey + " berhasil disimpan — " + totalRows.ToString("N0") + " baris.";
                 ActiveTab = "dashboard";
             }
@@ -515,7 +533,12 @@ namespace LaporanProduktivitasWPF.ViewModels
                 MessageBox.Show("Gagal mengimport file Excel: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 StatusMessage = "Gagal mengimport file.";
             }
-            finally { IsLoading = false; }
+            finally
+            {
+                await Task.Delay(200);
+                IsLoading = false;
+                LoadingProgress = 0;
+            }
         }
 
         private async Task SwitchToMonthAsync(string monthKey, bool preserveActiveTab = false)
@@ -523,6 +546,7 @@ namespace LaporanProduktivitasWPF.ViewModels
             try
             {
                 IsLoading = true;
+                LoadingProgress = 15;
                 StatusMessage = "Memuat data bulan " + monthKey + " dari database...";
                 string savedTab = ActiveTab;
 
@@ -534,10 +558,12 @@ namespace LaporanProduktivitasWPF.ViewModels
                     MessageBox.Show("Data bulan " + monthKey + " tidak ditemukan di database.", "Data Tidak Ditemukan", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
+                LoadingProgress = 35;
 
                 // Muat baris dari PostgreSQL di background thread
                 string sheetName = meta.DefaultSheet ?? "L028D";
                 var rows = await Task.Run(() => DatabaseService.LoadMonthRowsAsync(monthKey, sheetName));
+                LoadingProgress = 65;
 
                 // Bangun struktur ExcelSheetData di background thread
                 var sheetsData = new Dictionary<string, ExcelSheetData>(StringComparer.OrdinalIgnoreCase);
@@ -555,9 +581,11 @@ namespace LaporanProduktivitasWPF.ViewModels
                 _sheetsData = sheetsData;
                 _activeSheet = sheetName;
                 OnPropertyChanged("ActiveSheet");
+                LoadingProgress = 85;
 
                 // Hitung kalkulasi tabel di background thread
                 await OnSheetChangedAsync();
+                LoadingProgress = 100;
 
                 StatusMessage = "✅ Data bulan " + monthKey + " — " + rows.Count.ToString("N0") + " baris.";
 
@@ -571,7 +599,12 @@ namespace LaporanProduktivitasWPF.ViewModels
                 MessageBox.Show("Gagal memuat data: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 StatusMessage = "Gagal memuat data bulan.";
             }
-            finally { IsLoading = false; }
+            finally
+            {
+                await Task.Delay(200);
+                IsLoading = false;
+                LoadingProgress = 0;
+            }
         }
 
         public async Task LoadExcelAsync(string filePath) => await ImportAndCacheAsync(filePath);
