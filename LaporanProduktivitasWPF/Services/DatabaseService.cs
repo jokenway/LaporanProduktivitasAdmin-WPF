@@ -149,6 +149,76 @@ namespace LaporanProduktivitasWPF.Services
         }
 
         // ─────────────────────────────────────────────────
+        // Manajemen User
+        // ─────────────────────────────────────────────────
+
+        public static async Task<List<string>> GetAllStaffAndAdminUsersAsync()
+        {
+            var list = new List<string>();
+            try
+            {
+                using var conn = new NpgsqlConnection(_connectionString);
+                await conn.OpenAsync();
+                string sql = "SELECT username FROM app_users WHERE role IN ('admin', 'staff') AND is_active = true ORDER BY username";
+                using var cmd = new NpgsqlCommand(sql, conn);
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    list.Add(reader.GetString(0).ToUpperInvariant());
+                }
+            }
+            catch { }
+            return list;
+        }
+
+        public static async Task<bool> AddUserAsync(string username, string password, string role, string createdBy)
+        {
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
+                return false;
+            if (!string.Equals(createdBy, "AKBAR", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(createdBy, "ST", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            string normalizedRole = (role ?? string.Empty).Trim().ToLowerInvariant();
+            if (normalizedRole != "admin" && normalizedRole != "staff" && normalizedRole != "viewer")
+                return false;
+            if (normalizedRole == "admin" && !string.Equals(createdBy, "AKBAR", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            try
+            {
+                using var conn = new NpgsqlConnection(_connectionString);
+                await conn.OpenAsync();
+                string hash = BCrypt.Net.BCrypt.HashPassword(password);
+                string sql = "INSERT INTO app_users (username, password_hash, role) VALUES (@u, @p, @r)";
+                using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("u", username.Trim());
+                cmd.Parameters.AddWithValue("p", hash);
+                cmd.Parameters.AddWithValue("r", normalizedRole);
+                await cmd.ExecuteNonQueryAsync();
+                return true;
+            }
+            catch { return false; }
+        }
+
+        public static async Task<bool> UpdateUserPasswordAsync(string username, string newPassword)
+        {
+            try
+            {
+                using var conn = new NpgsqlConnection(_connectionString);
+                await conn.OpenAsync();
+                string hash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+                string sql = "UPDATE app_users SET password_hash = @p WHERE UPPER(username) = UPPER(@u)";
+                using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("u", username.Trim());
+                cmd.Parameters.AddWithValue("p", hash);
+                int rows = await cmd.ExecuteNonQueryAsync();
+                return rows > 0;
+            }
+            catch { return false; }
+        }
+
+        // ─────────────────────────────────────────────────
         // Manajemen bulan
         // ─────────────────────────────────────────────────
 
@@ -325,46 +395,8 @@ namespace LaporanProduktivitasWPF.Services
 
         public static async Task SaveManualLogAsync(EvaluasiItem item, string updatedBy)
         {
-            try
-            {
-                if (item == null || string.IsNullOrEmpty(item.Key)) return;
-                using var conn = new NpgsqlConnection(_connectionString);
-                await conn.OpenAsync();
-
-                bool isEmpty = item.NotaSalah <= 0 &&
-                               string.IsNullOrEmpty(item.JamDatang) &&
-                               string.IsNullOrEmpty(item.JamPulang) &&
-                               string.IsNullOrEmpty(item.Keterangan);
-
-                if (isEmpty)
-                {
-                    using var delCmd = new NpgsqlCommand("DELETE FROM manual_logs WHERE log_key = @k", conn);
-                    delCmd.Parameters.AddWithValue("k", item.Key);
-                    await delCmd.ExecuteNonQueryAsync();
-                    return;
-                }
-
-                string sql = @"
-                    INSERT INTO manual_logs (log_key, nota_salah, jam_datang, jam_pulang, keterangan, updated_by, updated_at)
-                    VALUES (@k, @ns, @jd, @jp, @ket, @ub, NOW())
-                    ON CONFLICT (log_key) DO UPDATE SET
-                        nota_salah  = EXCLUDED.nota_salah,
-                        jam_datang  = EXCLUDED.jam_datang,
-                        jam_pulang  = EXCLUDED.jam_pulang,
-                        keterangan  = EXCLUDED.keterangan,
-                        updated_by  = EXCLUDED.updated_by,
-                        updated_at  = NOW()";
-
-                using var cmd = new NpgsqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("k", item.Key);
-                cmd.Parameters.AddWithValue("ns", item.NotaSalah);
-                cmd.Parameters.AddWithValue("jd", item.JamDatang ?? "");
-                cmd.Parameters.AddWithValue("jp", item.JamPulang ?? "");
-                cmd.Parameters.AddWithValue("ket", item.Keterangan ?? "");
-                cmd.Parameters.AddWithValue("ub", updatedBy ?? "");
-                await cmd.ExecuteNonQueryAsync();
-            }
-            catch { }
+            if (item == null || string.IsNullOrEmpty(item.Key)) return;
+            await SaveAllManualLogsAsync(new[] { item }, updatedBy);
         }
 
         /// <summary>
@@ -372,10 +404,69 @@ namespace LaporanProduktivitasWPF.Services
         /// </summary>
         public static async Task SaveAllManualLogsAsync(IEnumerable<EvaluasiItem> items, string updatedBy)
         {
-            foreach (var item in items)
+            var itemList = new List<EvaluasiItem>(items ?? Array.Empty<EvaluasiItem>());
+            if (itemList.Count == 0) return;
+
+            await using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+            await using var transaction = await conn.BeginTransactionAsync();
+
+            try
             {
-                await SaveManualLogAsync(item, updatedBy);
+                foreach (var item in itemList)
+                {
+                    if (item == null || string.IsNullOrEmpty(item.Key)) continue;
+
+                    bool isEmpty = item.NotaSalah <= 0 &&
+                                   string.IsNullOrEmpty(item.JamDatang) &&
+                                   string.IsNullOrEmpty(item.JamPulang) &&
+                                   string.IsNullOrEmpty(item.Keterangan);
+
+                    if (isEmpty)
+                    {
+                        await using var delCmd = new NpgsqlCommand("DELETE FROM manual_logs WHERE log_key = @k", conn, transaction);
+                        delCmd.Parameters.AddWithValue("k", item.Key);
+                        await delCmd.ExecuteNonQueryAsync();
+                        continue;
+                    }
+
+                    const string sql = @"
+                        INSERT INTO manual_logs (log_key, nota_salah, jam_datang, jam_pulang, keterangan, updated_by, updated_at)
+                        VALUES (@k, @ns, @jd, @jp, @ket, @ub, NOW())
+                        ON CONFLICT (log_key) DO UPDATE SET
+                            nota_salah  = EXCLUDED.nota_salah,
+                            jam_datang  = EXCLUDED.jam_datang,
+                            jam_pulang  = EXCLUDED.jam_pulang,
+                            keterangan  = EXCLUDED.keterangan,
+                            updated_by  = EXCLUDED.updated_by,
+                            updated_at  = NOW()";
+
+                    await using var cmd = new NpgsqlCommand(sql, conn, transaction);
+                    cmd.Parameters.AddWithValue("k", item.Key);
+                    cmd.Parameters.AddWithValue("ns", item.NotaSalah);
+                    cmd.Parameters.AddWithValue("jd", item.JamDatang ?? "");
+                    cmd.Parameters.AddWithValue("jp", item.JamPulang ?? "");
+                    cmd.Parameters.AddWithValue("ket", item.Keterangan ?? "");
+                    cmd.Parameters.AddWithValue("ub", updatedBy ?? "");
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                await transaction.CommitAsync();
             }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>Menghapus seluruh input manual. Hanya dipanggil oleh aksi reset administrator.</summary>
+        public static async Task DeleteAllManualLogsAsync()
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+            using var cmd = new NpgsqlCommand("DELETE FROM manual_logs", conn);
+            await cmd.ExecuteNonQueryAsync();
         }
 
         // ─────────────────────────────────────────────────

@@ -1,19 +1,45 @@
+using System;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using LaporanProduktivitasWPF.Models;
 using LaporanProduktivitasWPF.Services;
 
 namespace LaporanProduktivitasWPF.Views
 {
-    public partial class LoginWindow : Window
+    public class LoginSucceededEventArgs : EventArgs
+    {
+        public AppUser User { get; }
+
+        public LoginSucceededEventArgs(AppUser user)
+        {
+            User = user;
+        }
+    }
+
+    public partial class LoginWindow : UserControl
     {
         public AppUser LoggedInUser { get; private set; }
+        public event EventHandler<LoginSucceededEventArgs> LoginSucceeded;
         private int _failedAttempts = 0;
 
         public LoginWindow()
         {
             InitializeComponent();
-            TxtUsername.Focus();
+            Loaded += (s, e) => TxtUsername.Focus();
+        }
+
+        public void Reset()
+        {
+            LoggedInUser = null;
+            _failedAttempts = 0;
+            TxtUsername.Clear();
+            TxtPassword.Clear();
+            TxtError.Text = string.Empty;
+            TxtError.Visibility = Visibility.Collapsed;
+            BtnLogin.IsEnabled = true;
+            BtnLogin.Content = "Masuk";
+            Dispatcher.BeginInvoke(new Action(() => TxtUsername.Focus()));
         }
 
         private async void BtnLogin_Click(object sender, RoutedEventArgs e)
@@ -29,6 +55,8 @@ namespace LaporanProduktivitasWPF.Views
 
         private async System.Threading.Tasks.Task TryLoginAsync()
         {
+            if (!BtnLogin.IsEnabled) return;
+
             string username = TxtUsername.Text?.Trim() ?? "";
             string password = TxtPassword.Password ?? "";
 
@@ -50,8 +78,9 @@ namespace LaporanProduktivitasWPF.Views
             if (user != null)
             {
                 LoggedInUser = user;
-                DialogResult = true;
-                Close();
+                _failedAttempts = 0;
+                TxtPassword.Clear();
+                LoginSucceeded?.Invoke(this, new LoginSucceededEventArgs(user));
             }
             else
             {

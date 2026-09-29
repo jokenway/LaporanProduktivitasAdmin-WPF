@@ -20,3 +20,6 @@ $RECYCLE.BIN/
 # Standalone build outputs & ZIP
 LaporanProduktivitasApp/
 LaporanProduktivitasApp.zip
+
+# VS Code Workspace Settings
+.vscode/

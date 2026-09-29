@@ -24,6 +24,12 @@ namespace LaporanProduktivitasWPF.Models
         /// <summary>Semua role bisa melihat semua tab.</summary>
         public bool CanViewAll => true;
 
+        /// <summary>Hanya ST dan AKBAR yang bisa menambah user.</summary>
+        public bool CanManageUsers => string.Equals(Username, "AKBAR", StringComparison.OrdinalIgnoreCase) || string.Equals(Username, "ST", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Hanya AKBAR yang bisa membuat akun dengan role admin.</summary>
+        public bool CanCreateAdmin => string.Equals(Username, "AKBAR", StringComparison.OrdinalIgnoreCase);
+
         public override string ToString() => $"{Username} ({Role})";
     }
 
@@ -32,11 +38,11 @@ namespace LaporanProduktivitasWPF.Models
     /// </summary>
     public class AppConfig
     {
-        public string Host { get; set; } = "192.168.179.24";
+        public string Host { get; set; } = "127.0.0.1";
         public int Port { get; set; } = 5432;
         public string Database { get; set; } = "laporan_produktivitas";
         public string PgUser { get; set; } = "postgres";
-        public string PgPassword { get; set; } = "password";
+        public string PgPassword { get; set; } = "admin";
 
         public string BuildConnectionString()
         {

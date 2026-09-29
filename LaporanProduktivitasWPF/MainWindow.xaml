@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:LaporanProduktivitasWPF.ViewModels"
+        xmlns:views="clr-namespace:LaporanProduktivitasWPF.Views"
         mc:Ignorable="d"
         Title="Laporan Produktivitas Admin - WPF Desktop Studio" 
         Height="820" Width="1280"
@@ -13,6 +14,7 @@
         Foreground="{StaticResource TextLightBrush}">
 
     <Grid>
+      <Grid x:Name="ApplicationView">
         <Grid.RowDefinitions>
             <!-- 0: Top Header -->
             <RowDefinition Height="Auto" />
@@ -70,7 +72,53 @@
                         </StackPanel>
                     </Border>
                     <!-- Tombol Logout -->
-                    <Button Content="🔓 Logout" Command="{Binding LogoutCommand}"
+                    <!-- Edit Profil -->
+                    <Button Content="Ubah Profil" Command="{Binding EditProfileCommand}"
+                            Height="28" Padding="10,0" FontSize="11" FontWeight="SemiBold" Margin="0,0,8,0"
+                            Background="#475569" Foreground="White" BorderThickness="0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="#334155"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Tambah User -->
+                    <Button Content="Tambah User" Command="{Binding AddUserCommand}"
+                            Height="28" Padding="10,0" FontSize="11" FontWeight="SemiBold" Margin="0,0,8,0"
+                            Background="#059669" Foreground="White" BorderThickness="0" Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentUser.CanManageUsers}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="#047857"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <Button Content="Logout" Command="{Binding LogoutCommand}"
                             Height="28" Padding="10,0" FontSize="11" FontWeight="SemiBold"
                             Background="#7F1D1D" Foreground="White" BorderThickness="0" Cursor="Hand">
                         <Button.Template>
@@ -93,13 +141,13 @@
         <!-- ROW 1: NAVIGATION TABS -->
         <Border Grid.Row="1" Background="#F8FAFC" Padding="16,6" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal">
-                <Button Content="📊 Dashboard" Command="{Binding SwitchTabCommand}" CommandParameter="dashboard"
+                <Button Content="Dashboard" Command="{Binding SwitchTabCommand}" CommandParameter="dashboard"
                         Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
-                <Button Content="📋 Tabel Pivot Detail" Command="{Binding SwitchTabCommand}" CommandParameter="exact"
+                <Button Content="Tabel Pivot Detail" Command="{Binding SwitchTabCommand}" CommandParameter="exact"
                         Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
-                <Button Content="⏱️ Kinerja &amp; Absensi" Command="{Binding SwitchTabCommand}" CommandParameter="evaluasi"
+                <Button Content="Kinerja &amp; Absensi" Command="{Binding SwitchTabCommand}" CommandParameter="evaluasi"
                         Style="{StaticResource ModernButton}" Margin="0,0,6,0" />
-                <Button Content="⚙️ Custom Pivot" Command="{Binding SwitchTabCommand}" CommandParameter="custom"
+                <Button Content="Custom Pivot" Command="{Binding SwitchTabCommand}" CommandParameter="custom"
                         Style="{StaticResource ModernButton}" />
             </StackPanel>
         </Border>
@@ -178,16 +226,16 @@
                 <!-- Refresh + Import + Manage buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,4">
                     <!-- Tombol Refresh (Bisa diakses SEMUA user) -->
-                    <Button Content="🔄 Refresh" Command="{Binding RefreshAllDataCommand}"
+                    <Button Content="Refresh" Command="{Binding RefreshAllDataCommand}"
                             Style="{StaticResource ModernButton}" Height="28" FontSize="11" Padding="10,0" Margin="0,0,6,0"
                             ToolTip="Muat ulang data terbaru dari server PostgreSQL" />
 
                     <!-- Hanya admin (AKBAR) yang bisa import -->
-                    <Button Content="➕ Import" Command="{Binding OpenFileCommand}"
+                    <Button Content="Import" Command="{Binding OpenFileCommand}"
                             Style="{StaticResource PrimaryButton}" Height="28" FontSize="11" Padding="10,0" Margin="0,0,6,0"
                             IsEnabled="{Binding CurrentUser.CanImport}"
                             Visibility="{Binding CurrentUser.CanImport, Converter={StaticResource BoolToVis}}" />
-                    <Button Content="🗂 Kelola" Command="{Binding SwitchTabCommand}" CommandParameter="import"
+                    <Button Content="Kelola" Command="{Binding SwitchTabCommand}" CommandParameter="import"
                             Style="{StaticResource ModernButton}" Height="28" FontSize="11" Padding="10,0"
                             IsEnabled="{Binding CurrentUser.CanImport}"
                             Visibility="{Binding CurrentUser.CanImport, Converter={StaticResource BoolToVis}}" />
@@ -308,7 +356,7 @@
                                            FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="16,0,0,0">
-                                <Button Content="➕ Import File Baru" Command="{Binding OpenFileCommand}"
+                                <Button Content="Import File Baru" Command="{Binding OpenFileCommand}"
                                         Style="{StaticResource PrimaryButton}" Height="38" FontSize="13" />
                             </StackPanel>
                         </Grid>
@@ -380,7 +428,7 @@
                                                             Command="{Binding DataContext.SwitchMonthCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                             CommandParameter="{Binding Key}"
                                                             Style="{StaticResource SuccessButton}" Margin="0,0,8,0" />
-                                                    <Button Content="🗑 Hapus" Height="32" Padding="10,0"
+                                                    <Button Content="Hapus" Height="32" Padding="10,0"
                                                             Command="{Binding DataContext.DeleteMonthCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                             CommandParameter="{Binding Key}"
                                                             Style="{StaticResource DangerButton}" />
@@ -522,9 +570,9 @@
                                            FontSize="11" Foreground="#4338CA" Margin="0,2,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="⚡ Isi Jam Standar (08-17)" Command="{Binding ApplyDefaultHoursCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
-                                <Button Content="📥 Export CSV" Command="{Binding ExportEvaluasiCommand}" Style="{StaticResource SuccessButton}" Margin="0,0,8,0" />
-                                <Button Content="🔄 Reset Input" Command="{Binding ResetInputsCommand}" Style="{StaticResource ModernButton}" />
+                                <Button Content="Isi Jam Standar (08-17)" Command="{Binding ApplyDefaultHoursCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
+                                <Button Content="Export CSV" Command="{Binding ExportEvaluasiCommand}" Style="{StaticResource SuccessButton}" Margin="0,0,8,0" />
+                                <Button Content="Reset Input" Command="{Binding ResetInputsCommand}" Style="{StaticResource ModernButton}" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -718,7 +766,7 @@
                                 </StackPanel>
                             </UniformGrid>
 
-                            <Button Content="✨ Terapkan Preset Otomatis (NoInv per User &amp; Tanggal)" 
+                            <Button Content="Terapkan Preset Otomatis (NoInv per User &amp; Tanggal)"
                                     Command="{Binding ApplyPresetCommand}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Height="36" />
                         </StackPanel>
                     </Border>
@@ -755,6 +803,9 @@
                 <TextBlock Text="Laporan Produktivitas Admin • .NET 8 WPF Studio" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#64748B" FontSize="11" />
             </Grid>
         </Border>
+      </Grid>
+
+      <views:LoginWindow x:Name="LoginView" Visibility="Collapsed" />
     </Grid>
 </Window>
 

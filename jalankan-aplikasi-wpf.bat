@@ -1,6 +1,7 @@
 @echo off
 title Laporan Produktivitas Admin (WPF .NET 8 Desktop)
 color 0B
+cd /d "%~dp0"
 
 echo ========================================================
 echo   LAPORAN PRODUKTIVITAS ADMIN - NATIVE WPF .NET 8

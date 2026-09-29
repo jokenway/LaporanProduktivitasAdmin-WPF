@@ -6,7 +6,6 @@ using System.Windows;
 using System.Windows.Threading;
 using LaporanProduktivitasWPF.Models;
 using LaporanProduktivitasWPF.Services;
-using LaporanProduktivitasWPF.Views;
 
 namespace LaporanProduktivitasWPF
 {
@@ -17,9 +16,6 @@ namespace LaporanProduktivitasWPF
             base.OnStartup(e);
             DispatcherUnhandledException += App_DispatcherUnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-
-            // Cegah WPF auto-shutdown saat LoginWindow ditutup
-            ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
             // 1. Baca konfigurasi koneksi (hardcoded default)
             var config = LoadOrCreateConfig();
@@ -41,19 +37,9 @@ namespace LaporanProduktivitasWPF
                 return;
             }
 
-            // 3. Tampilkan Login window
-            var login = new LoginWindow();
-            bool? result = login.ShowDialog();
-
-            if (result != true || login.LoggedInUser == null)
-            {
-                Shutdown();
-                return;
-            }
-
-            // 4. Buka Main window — set ke OnLastWindowClose agar tutup normal
-            ShutdownMode = ShutdownMode.OnLastWindowClose;
-            var main = new MainWindow(login.LoggedInUser);
+            // MainWindow menjadi satu-satunya window dan menampilkan login sebagai halaman penuh.
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
+            var main = new MainWindow();
             MainWindow = main;
             main.Show();
         }

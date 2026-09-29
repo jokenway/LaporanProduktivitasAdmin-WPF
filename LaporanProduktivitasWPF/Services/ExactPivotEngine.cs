@@ -83,7 +83,10 @@ namespace LaporanProduktivitasWPF.Services
             }
 
             // Sort dates
-            result.AvailableDates = dateMap.Keys.OrderBy(d => d).ToList();
+            result.AvailableDates = dateMap.Keys
+                .OrderBy(d => EvaluasiEngine.TryParseDate(d) ?? DateTime.MaxValue)
+                .ThenBy(d => d)
+                .ToList();
             // Sort users by invoice count desc
             result.AvailableUsers = userMap.OrderByDescending(kv => kv.Value.Count).Select(kv => kv.Key).ToList();
             result.AvailableJenisB = jenisBSet.OrderBy(j => j).ToList();
@@ -143,7 +146,9 @@ namespace LaporanProduktivitasWPF.Services
                 string tgbon = r.Get("TGBON");
                 string jb = r.Get("JENIS_B");
 
-                string key = nmpg + "|||" + noinv + "|||" + kdprc + "|||" + usid;
+                // Tanggal dan jenis barang adalah dimensi pivot. Tanpa keduanya,
+                // transaksi berbeda bisa tergabung ke item yang sama.
+                string key = nmpg + "|||" + noinv + "|||" + kdprc + "|||" + usid + "|||" + tgbon + "|||" + jb;
 
                 ExactPivotItem item;
                 if (!groupMap.TryGetValue(key, out item))

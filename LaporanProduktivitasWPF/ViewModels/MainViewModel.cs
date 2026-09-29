@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -98,6 +99,9 @@ namespace LaporanProduktivitasWPF.ViewModels
         private List<RawRow> _currentRows = new List<RawRow>();
         private Dictionary<string, ExcelSheetData> _sheetsData = new Dictionary<string, ExcelSheetData>(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, EvaluasiItem> _manualLogs = new Dictionary<string, EvaluasiItem>(StringComparer.OrdinalIgnoreCase);
+        private readonly SemaphoreSlim _manualSaveLock = new SemaphoreSlim(1, 1);
+        private CancellationTokenSource _manualSaveDebounce;
+        private bool _suppressManualSave;
 
         // Exact Pivot state
         private string _selectedDate = "ALL";
@@ -285,6 +289,8 @@ namespace LaporanProduktivitasWPF.ViewModels
         public ICommand DeleteMonthCommand { get; private set; }
         public ICommand LogoutCommand { get; private set; }
         public ICommand RefreshAllDataCommand { get; private set; }
+        public ICommand AddUserCommand { get; private set; }
+        public ICommand EditProfileCommand { get; private set; }
 
         /// <summary>Dipicu saat user klik logout — MainWindow subscribe untuk menangani.</summary>
         public event EventHandler LogoutRequested;
@@ -359,6 +365,26 @@ namespace LaporanProduktivitasWPF.ViewModels
             });
 
             RefreshAllDataCommand = new RelayCommand(async () => await RefreshAllDataAsync());
+
+            AddUserCommand = new RelayCommand(() =>
+            {
+                if (CurrentUser == null || !CurrentUser.CanManageUsers)
+                {
+                    MessageBox.Show("Hanya ST dan AKBAR yang dapat menambah user.", "Akses Ditolak", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                var w = new LaporanProduktivitasWPF.Views.AddUserWindow(CurrentUser.Username, CurrentUser.CanCreateAdmin);
+                if (w.ShowDialog() == true)
+                {
+                    _ = RefreshAllDataAsync();
+                }
+            });
+
+            EditProfileCommand = new RelayCommand(() =>
+            {
+                var w = new LaporanProduktivitasWPF.Views.EditProfileWindow(CurrentUser.Username);
+                w.ShowDialog();
+            });
 
             // Load data dari database (async, tanpa blocking UI)
             InitializeAsync();
@@ -689,27 +715,9 @@ namespace LaporanProduktivitasWPF.ViewModels
                 SearchQuery
             );
 
-            // Populate Available filter options if changed
-            if (AvailableDates.Count != res.AvailableDates.Count + 1)
-            {
-                AvailableDates.Clear();
-                AvailableDates.Add("ALL");
-                foreach (var d in res.AvailableDates) AvailableDates.Add(d);
-            }
-
-            if (AvailableUsers.Count != res.AvailableUsers.Count + 1)
-            {
-                AvailableUsers.Clear();
-                AvailableUsers.Add("ALL");
-                foreach (var u in res.AvailableUsers) AvailableUsers.Add(u);
-            }
-
-            if (AvailableJenisB.Count != res.AvailableJenisB.Count + 1)
-            {
-                AvailableJenisB.Clear();
-                AvailableJenisB.Add("ALL");
-                foreach (var j in res.AvailableJenisB) AvailableJenisB.Add(j);
-            }
+            UpdateFilterOptions(AvailableDates, res.AvailableDates);
+            UpdateFilterOptions(AvailableUsers, res.AvailableUsers);
+            UpdateFilterOptions(AvailableJenisB, res.AvailableJenisB);
 
             ExactPivotItems = new ObservableCollection<ExactPivotItem>(res.Items);
 
@@ -817,12 +825,7 @@ namespace LaporanProduktivitasWPF.ViewModels
                 "ADMIN_INVOICE"
             );
 
-            if (EvalAvailableDates.Count != res.AvailableDates.Count + 1)
-            {
-                EvalAvailableDates.Clear();
-                EvalAvailableDates.Add("ALL");
-                foreach (var d in res.AvailableDates) EvalAvailableDates.Add(d);
-            }
+            UpdateFilterOptions(EvalAvailableDates, res.AvailableDates);
 
             // Only repopulate user dropdown if content changed (prevents WPF binding loop causing duplicates)
             var expectedUsers = res.AvailableUsers;
@@ -873,6 +876,7 @@ namespace LaporanProduktivitasWPF.ViewModels
                     }
 
                     _manualLogs[item.Key] = item;
+                    if (_suppressManualSave) return;
                     SaveManualLogsToStorage();
                     RecalculateEvaluasiSummary();
                 };
@@ -913,50 +917,146 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private void ApplyDefaultWorkingHours()
         {
-            int count = 0;
-            foreach (var it in EvaluasiItems)
+            if (_currentUser == null || !_currentUser.CanInputAttendance)
             {
-                if (string.IsNullOrEmpty(it.JamDatang) || string.IsNullOrEmpty(it.JamPulang))
+                MessageBox.Show("Anda tidak memiliki izin untuk mengubah jam kerja.", "Akses Ditolak", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            int count = 0;
+            _suppressManualSave = true;
+            try
+            {
+                foreach (var it in EvaluasiItems)
                 {
-                    it.JamDatang = "08:00";
-                    it.JamPulang = "17:00";
-                    _manualLogs[it.Key] = it;
-                    count++;
+                    // Staff hanya boleh mengisi barisnya sendiri; AKBAR dapat mengisi semua baris.
+                    if (!string.Equals(_currentUser.Username, "AKBAR", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(it.User, _currentUser.Username, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (string.IsNullOrEmpty(it.JamDatang) || string.IsNullOrEmpty(it.JamPulang))
+                    {
+                        it.JamDatang = "08:00";
+                        it.JamPulang = "17:00";
+                        _manualLogs[it.Key] = it;
+                        count++;
+                    }
                 }
             }
-            SaveManualLogsToStorage();
+            finally
+            {
+                _suppressManualSave = false;
+            }
+
+            if (count > 0) SaveManualLogsToStorage();
             RefreshEvaluasi();
             MessageBox.Show(string.Format("Berhasil menerapkan jam standar (08:00 - 17:00) untuk {0} baris.", count), "Informasi", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        private void ResetManualInputs()
+        private async void ResetManualInputs()
         {
+            if (_currentUser == null || !string.Equals(_currentUser.Username, "AKBAR", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("Hanya AKBAR yang dapat mereset seluruh input manual.", "Akses Ditolak", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             if (MessageBox.Show("Apakah Anda yakin ingin menghapus seluruh data inputan nota salah dan jam kerja?", "Konfirmasi Reset", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
-                _manualLogs.Clear();
-                SaveManualLogsToStorage();
-                RefreshEvaluasi();
+                try
+                {
+                    await DatabaseService.DeleteAllManualLogsAsync();
+                    _manualLogs.Clear();
+                    RefreshEvaluasi();
+                    StatusMessage = "✅ Seluruh input manual berhasil dihapus.";
+                }
+                catch (Exception ex)
+                {
+                    StatusMessage = "⚠️ Gagal mereset input: " + ex.Message;
+                    MessageBox.Show("Input tidak dihapus karena database gagal diproses.", "Reset Gagal", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
         private void SaveManualLogsToStorage()
         {
-            // Fire-and-forget async save to PostgreSQL
-            _ = SaveManualLogsToDatabaseAsync();
+            var previousSave = _manualSaveDebounce;
+            var pendingSave = new CancellationTokenSource();
+            _manualSaveDebounce = pendingSave;
+            previousSave?.Cancel();
+            _ = SaveManualLogsAfterDelayAsync(pendingSave);
         }
 
         private async Task SaveManualLogsToDatabaseAsync()
         {
+            var pendingSave = _manualSaveDebounce;
+            _manualSaveDebounce = null;
+            pendingSave?.Cancel();
+            await PersistManualLogsAsync();
+        }
+
+        private async Task SaveManualLogsAfterDelayAsync(CancellationTokenSource pendingSave)
+        {
+            try
+            {
+                await Task.Delay(500, pendingSave.Token);
+                await PersistManualLogsAsync();
+            }
+            catch (OperationCanceledException)
+            {
+                // Perubahan yang lebih baru akan menyimpan snapshot terbaru.
+            }
+            finally
+            {
+                if (ReferenceEquals(_manualSaveDebounce, pendingSave))
+                    _manualSaveDebounce = null;
+                pendingSave.Dispose();
+            }
+        }
+
+        private async Task PersistManualLogsAsync()
+        {
+            await _manualSaveLock.WaitAsync();
             try
             {
                 string who = _currentUser?.Username ?? "";
-                await DatabaseService.SaveAllManualLogsAsync(_manualLogs.Values, who);
-                StatusMessage = "✅ Input tersimpan ke database (" + DateTime.Now.ToString("HH:mm:ss") + ")";
+                var snapshot = _manualLogs.Values.ToList();
+                await DatabaseService.SaveAllManualLogsAsync(snapshot, who);
+                StatusMessage = "Input tersimpan ke database (" + DateTime.Now.ToString("HH:mm:ss") + ")";
             }
             catch (Exception ex)
             {
-                StatusMessage = "⚠️ Gagal menyimpan: " + ex.Message;
+                StatusMessage = "Gagal menyimpan: " + ex.Message;
             }
+            finally
+            {
+                _manualSaveLock.Release();
+            }
+        }
+
+        private static void UpdateFilterOptions(ObservableCollection<string> target, IList<string> options)
+        {
+            bool changed = target.Count != options.Count + 1 ||
+                           target.Count == 0 ||
+                           !string.Equals(target[0], "ALL", StringComparison.OrdinalIgnoreCase);
+
+            if (!changed)
+            {
+                for (int i = 0; i < options.Count; i++)
+                {
+                    if (!string.Equals(target[i + 1], options[i], StringComparison.OrdinalIgnoreCase))
+                    {
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!changed) return;
+
+            target.Clear();
+            target.Add("ALL");
+            foreach (var option in options) target.Add(option);
         }
 
         private void ExportExactPivot()

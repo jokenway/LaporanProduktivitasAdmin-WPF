@@ -9,38 +9,56 @@ namespace LaporanProduktivitasWPF
     {
         private MainViewModel _vm;
 
-        public MainWindow(AppUser currentUser)
+        public MainWindow()
         {
             InitializeComponent();
+            LoginView.LoginSucceeded += OnLoginSucceeded;
+            ShowLogin();
+        }
+
+        public MainWindow(AppUser currentUser) : this()
+        {
+            ShowApplication(currentUser);
+        }
+
+        private void OnLoginSucceeded(object sender, LoginSucceededEventArgs e)
+        {
+            ShowApplication(e.User);
+        }
+
+        private void ShowApplication(AppUser currentUser)
+        {
+            DetachCurrentViewModel();
             _vm = new MainViewModel(currentUser);
+            _vm.LogoutRequested += OnLogoutRequested;
             DataContext = _vm;
 
-            // Subscribe logout event
-            _vm.LogoutRequested += OnLogoutRequested;
+            LoginView.Visibility = Visibility.Collapsed;
+            ApplicationView.Visibility = Visibility.Visible;
+            Title = "Laporan Produktivitas Admin - WPF Desktop Studio";
+        }
+
+        private void ShowLogin()
+        {
+            DetachCurrentViewModel();
+            DataContext = null;
+
+            ApplicationView.Visibility = Visibility.Collapsed;
+            LoginView.Visibility = Visibility.Visible;
+            Title = "Login - Laporan Produktivitas Admin";
+            LoginView.Reset();
+        }
+
+        private void DetachCurrentViewModel()
+        {
+            if (_vm == null) return;
+            _vm.LogoutRequested -= OnLogoutRequested;
+            _vm = null;
         }
 
         private void OnLogoutRequested(object sender, System.EventArgs e)
         {
-            // Buka LoginWindow lagi
-            var login = new LoginWindow();
-            bool? result = login.ShowDialog();
-
-            if (result == true && login.LoggedInUser != null)
-            {
-                // Buka MainWindow baru dengan user baru
-                var newMain = new MainWindow(login.LoggedInUser);
-                Application.Current.MainWindow = newMain;
-                newMain.Show();
-            }
-            else
-            {
-                // User tutup login window — matikan aplikasi
-                Application.Current.Shutdown();
-                return;
-            }
-
-            // Tutup window ini
-            Close();
+            ShowLogin();
         }
 
         private void OnEvaluasiGridBeginningEdit(object sender, System.Windows.Controls.DataGridBeginningEditEventArgs e)

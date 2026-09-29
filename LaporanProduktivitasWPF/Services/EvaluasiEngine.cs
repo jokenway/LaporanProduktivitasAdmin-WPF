@@ -40,7 +40,7 @@ namespace LaporanProduktivitasWPF.Services
 
     public static class EvaluasiEngine
     {
-        public static readonly HashSet<string> ADMIN_INVOICE_USERS = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        public static HashSet<string> ADMIN_INVOICE_USERS = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "AKBAR", "DIDIN", "JOE", "RONI", "NOVIANI", "STEVI", "GINA"
         };
@@ -50,6 +50,19 @@ namespace LaporanProduktivitasWPF.Services
             if (string.IsNullOrWhiteSpace(dateStr)) return null;
 
             string s = dateStr.Trim();
+            if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double excelSerial) &&
+                excelSerial >= 20000 && excelSerial <= 2958465)
+            {
+                try
+                {
+                    return DateTime.FromOADate(excelSerial).Date;
+                }
+                catch (ArgumentException)
+                {
+                    return null;
+                }
+            }
+
             for (int i = 0; i < ExcelService.INDONESIAN_MONTHS.Length; i++)
             {
                 string mName = ExcelService.INDONESIAN_MONTHS[i];

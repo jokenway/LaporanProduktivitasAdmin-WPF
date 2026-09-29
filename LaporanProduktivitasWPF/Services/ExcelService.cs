@@ -166,6 +166,7 @@ namespace LaporanProduktivitasWPF.Services
             var wbEntry = archive.GetEntry("xl/workbook.xml");
             if (wbEntry == null) return list;
 
+            var relationshipTargets = ReadWorkbookRelationshipTargets(archive);
             int sheetIndex = 1;
             using (var stream = wbEntry.Open())
             using (var reader = XmlReader.Create(stream, new XmlReaderSettings { IgnoreWhitespace = true }))
@@ -176,10 +177,15 @@ namespace LaporanProduktivitasWPF.Services
                     {
                         string name = reader.GetAttribute("name") ?? ("Sheet" + sheetIndex);
                         string rId = reader.GetAttribute("id", "http://schemas.openxmlformats.org/officeDocument/2006/relationships") ?? ("rId" + sheetIndex);
+                        string targetFile;
+                        if (!relationshipTargets.TryGetValue(rId, out targetFile))
+                        {
+                            targetFile = "xl/worksheets/sheet" + sheetIndex + ".xml";
+                        }
                         list.Add(new SheetInfo
                         {
                             Name = name,
-                            TargetFile = "xl/worksheets/sheet" + sheetIndex + ".xml"
+                            TargetFile = targetFile
                         });
                         sheetIndex++;
                     }
@@ -187,6 +193,56 @@ namespace LaporanProduktivitasWPF.Services
             }
 
             return list;
+        }
+
+        private static Dictionary<string, string> ReadWorkbookRelationshipTargets(ZipArchive archive)
+        {
+            var targets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var relsEntry = archive.GetEntry("xl/_rels/workbook.xml.rels");
+            if (relsEntry == null) return targets;
+
+            using (var stream = relsEntry.Open())
+            using (var reader = XmlReader.Create(stream, new XmlReaderSettings { IgnoreWhitespace = true }))
+            {
+                while (reader.Read())
+                {
+                    if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "Relationship") continue;
+
+                    string id = reader.GetAttribute("Id");
+                    string target = reader.GetAttribute("Target");
+                    string targetMode = reader.GetAttribute("TargetMode");
+                    if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(target) ||
+                        string.Equals(targetMode, "External", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    targets[id] = ResolveWorkbookTarget(target);
+                }
+            }
+
+            return targets;
+        }
+
+        private static string ResolveWorkbookTarget(string target)
+        {
+            string normalized = (target ?? string.Empty).Replace('\\', '/');
+            bool isAbsolute = normalized.StartsWith("/", StringComparison.Ordinal);
+            var parts = new List<string>();
+            if (!isAbsolute) parts.Add("xl");
+
+            foreach (string part in normalized.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (part == ".") continue;
+                if (part == "..")
+                {
+                    if (parts.Count > 0) parts.RemoveAt(parts.Count - 1);
+                    continue;
+                }
+                parts.Add(part);
+            }
+
+            return string.Join("/", parts);
         }
 
         private static ExcelSheetData ReadWorksheet(ZipArchiveEntry entry, List<string> sharedStrings, string sheetName)
@@ -288,12 +344,42 @@ namespace LaporanProduktivitasWPF.Services
                 for (int c = 0; c < sheetData.Headers.Count; c++)
                 {
                     string val = c < rList.Count ? (rList[c] ?? string.Empty).Trim() : string.Empty;
+                    if (IsDateHeader(sheetData.Headers[c]) && TryFormatExcelSerialDate(val, out string formattedDate))
+                    {
+                        val = formattedDate;
+                    }
                     rowObj.Cells[sheetData.Headers[c]] = val;
                 }
                 sheetData.Rows.Add(rowObj);
             }
 
             return sheetData;
+        }
+
+        private static bool IsDateHeader(string header)
+        {
+            return string.Equals(header, "TGBON", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(header, "Tanggal", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryFormatExcelSerialDate(string value, out string formattedDate)
+        {
+            formattedDate = null;
+            if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double serial) ||
+                serial < 20000 || serial > 2958465)
+            {
+                return false;
+            }
+
+            try
+            {
+                formattedDate = DateTime.FromOADate(serial).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
         }
 
         private static int GetColumnIndexFromRef(string cellRef)
@@ -338,7 +424,7 @@ namespace LaporanProduktivitasWPF.Services
                 sw.WriteLine("NO,TANGGAL,USER FAKTURIS,TOTAL NOTA,NOTA SALAH,AKURASI (%),JAM DATANG,JAM PULANG,DURASI KERJA,KETERANGAN");
                 foreach (var item in items)
                 {
-                    sw.WriteLine(string.Format("\"{0}\",\"{1}\",\"{2}\",{3},{4},{5:F1}%,,\"{6}\",\"{7}\",\"{8}\",\"{9}\"",
+                    sw.WriteLine(string.Format("\"{0}\",\"{1}\",\"{2}\",{3},{4},{5:F1}%,\"{6}\",\"{7}\",\"{8}\",\"{9}\"",
                         item.No,
                         item.Tanggal,
                         (item.User ?? "").Replace("\"", "\"\""),
@@ -350,7 +436,7 @@ namespace LaporanProduktivitasWPF.Services
                         item.DurasiText,
                         (item.Keterangan ?? "").Replace("\"", "\"\"")));
                 }
-                sw.WriteLine(string.Format("\"-\",\"TOTAL KESELURUHAN\",\"-\",{0},{1},{2:F1}%,,\"-\",\"-\",\"{3}\",\"-\"",
+                sw.WriteLine(string.Format("\"-\",\"TOTAL KESELURUHAN\",\"-\",{0},{1},{2:F1}%,\"-\",\"-\",\"{3}\",\"-\"",
                     totalNota, totalSalah, overallAkurasi, totalJamText));
             }
         }

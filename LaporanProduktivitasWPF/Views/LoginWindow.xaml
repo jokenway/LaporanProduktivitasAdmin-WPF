@@ -1,93 +1,94 @@
-<Window x:Class="LaporanProduktivitasWPF.Views.LoginWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Login — Laporan Produktivitas Admin"
-        Height="440" Width="420"
-        ResizeMode="NoResize"
-        WindowStartupLocation="CenterScreen"
-        Background="#F8FAFC">
+<UserControl x:Class="LaporanProduktivitasWPF.Views.LoginWindow"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#F8FAFC"
+             HorizontalContentAlignment="Stretch"
+             VerticalContentAlignment="Stretch">
 
     <Grid>
-        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="340">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="400" />
+        </Grid.ColumnDefinitions>
 
-            <!-- Logo + Judul -->
-            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,28">
-                <Border Background="#0284C7" CornerRadius="14" Width="56" Height="56"
-                        HorizontalAlignment="Center" Margin="0,0,0,14">
-                    <TextBlock Text="📊" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <!-- Hero Section (Left Column) -->
+        <Border Grid.Column="0">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#0284C7" Offset="0.0" />
+                    <GradientStop Color="#0369A1" Offset="1.0" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left" Margin="40">
+                <Border Background="#FFFFFF" CornerRadius="12" Width="64" Height="64"
+                        HorizontalAlignment="Left" Margin="0,0,0,20">
+                    <TextBlock Text="📊" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
-                <TextBlock Text="Laporan Produktivitas Admin"
-                           FontSize="18" FontWeight="Bold" Foreground="#0F172A"
-                           HorizontalAlignment="Center"/>
-                <TextBlock Text="Masuk dengan akun Anda"
-                           FontSize="12" Foreground="#64748B"
-                           HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                <TextBlock Text="Sistem Laporan" FontSize="36" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,4"/>
+                <TextBlock Text="Produktivitas Admin" FontSize="36" FontWeight="Bold" Foreground="#BAE6FD" Margin="0,0,0,16"/>
+                <TextBlock Text="Pantau kinerja, evaluasi absensi, dan olah data invoice tim admin dengan cepat, akurat, dan terintegrasi." 
+                           FontSize="14" Foreground="#E0F2FE" TextWrapping="Wrap" LineHeight="22" MaxWidth="350"/>
             </StackPanel>
+        </Border>
 
-            <!-- Form -->
-            <Border Background="#FFFFFF" CornerRadius="14" Padding="28,24"
-                    BorderBrush="#E2E8F0" BorderThickness="1">
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="20" ShadowDepth="4" Direction="270" Color="#0F172A" Opacity="0.06"/>
-                </Border.Effect>
-                <StackPanel>
+        <!-- Login Section (Right Column) -->
+        <Border Grid.Column="1" Background="#FFFFFF">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="300">
+                
+                <TextBlock Text="Selamat Datang" FontSize="22" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,4"/>
+                <TextBlock Text="Silakan masuk ke akun Anda" FontSize="13" Foreground="#64748B" Margin="0,0,0,28"/>
 
-                    <!-- Username -->
-                    <TextBlock Text="Username" FontSize="12" FontWeight="SemiBold"
-                               Foreground="#475569" Margin="0,0,0,6"/>
-                    <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Margin="0,0,0,16" Background="#F8FAFC">
-                        <TextBox x:Name="TxtUsername" Height="38" Padding="12,0"
+                <!-- Username -->
+                <TextBlock Text="Username" FontSize="12" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,6"/>
+                <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Margin="0,0,0,16" Background="#F8FAFC">
+                    <TextBox x:Name="TxtUsername" Height="40" Padding="12,0"
+                             Background="Transparent" Foreground="#0F172A"
+                             BorderThickness="0" FontSize="14" VerticalContentAlignment="Center"
+                             KeyDown="OnKeyDown"/>
+                </Border>
+
+                <!-- Password -->
+                <TextBlock Text="Password" FontSize="12" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,6"/>
+                <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Margin="0,0,0,8" Background="#F8FAFC">
+                    <PasswordBox x:Name="TxtPassword" Height="40" Padding="12,0"
                                  Background="Transparent" Foreground="#0F172A"
                                  BorderThickness="0" FontSize="14" VerticalContentAlignment="Center"
                                  KeyDown="OnKeyDown"/>
-                    </Border>
+                </Border>
 
-                    <!-- Password -->
-                    <TextBlock Text="Password" FontSize="12" FontWeight="SemiBold"
-                               Foreground="#475569" Margin="0,0,0,6"/>
-                    <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Margin="0,0,0,8" Background="#F8FAFC">
-                        <PasswordBox x:Name="TxtPassword" Height="38" Padding="12,0"
-                                     Background="Transparent" Foreground="#0F172A"
-                                     BorderThickness="0" FontSize="14" VerticalContentAlignment="Center"
-                                     KeyDown="OnKeyDown"/>
-                    </Border>
+                <!-- Error message -->
+                <TextBlock x:Name="TxtError" Text="" Foreground="#E11D48"
+                           FontSize="12" Margin="0,4,0,12" Visibility="Collapsed" TextWrapping="Wrap"/>
 
-                    <!-- Error message -->
-                    <TextBlock x:Name="TxtError" Text="" Foreground="#E11D48"
-                               FontSize="12" Margin="0,4,0,12" Visibility="Collapsed"
-                               TextWrapping="Wrap"/>
+                <!-- Tombol Login -->
+                <Button x:Name="BtnLogin" Content="Masuk"
+                        Height="42" FontSize="14" FontWeight="Bold"
+                        Background="#0284C7" Foreground="White"
+                        BorderThickness="0" Cursor="Hand"
+                        Click="BtnLogin_Click">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="bd" Property="Background" Value="#0369A1"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="bd" Property="Background" Value="#94A3B8"/>
+                                    <Setter Property="Foreground" Value="#F1F5F9"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
 
-                    <!-- Tombol Login -->
-                    <Button x:Name="BtnLogin" Content="Masuk"
-                            Height="42" FontSize="14" FontWeight="Bold"
-                            Background="#0284C7" Foreground="White"
-                            BorderThickness="0" Cursor="Hand"
-                            Click="BtnLogin_Click">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="bd" Background="{TemplateBinding Background}"
-                                        CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="bd" Property="Background" Value="#0369A1"/>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter TargetName="bd" Property="Background" Value="#94A3B8"/>
-                                        <Setter Property="Foreground" Value="#F1F5F9"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
-
-                </StackPanel>
-            </Border>
-
-            <!-- Footer -->
-            <TextBlock Text="© 2025 Laporan Produktivitas Admin" FontSize="11"
-                       Foreground="#94A3B8" HorizontalAlignment="Center" Margin="0,20,0,0"/>
-        </StackPanel>
+                <!-- Footer -->
+                <TextBlock Text="© 2025 Laporan Produktivitas Admin" FontSize="11"
+                           Foreground="#94A3B8" HorizontalAlignment="Center" Margin="0,32,0,0"/>
+            </StackPanel>
+        </Border>
     </Grid>
-</Window>
+</UserControl>
