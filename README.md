@@ -30,7 +30,7 @@ Atau jalankan langsung file executable tunggal (*standalone single-file zero-dep
    - Kolom editable langsung di tabel: `Nota Salah`, `Jam Datang`, `Jam Pulang`, `Catatan`.
    - Tombol otomatisasi: *"Isi Jam Standar (08:00 - 17:00)"*.
    - Auto-calculate durasi kerja dan persentase akurasi kerja.
-   - Penyimpanan data otomatis ke penyimpanan lokal (`%AppData%`).
+   - Penyimpanan data bersama menggunakan PostgreSQL; log diagnostik lokal tersimpan di `%AppData%`.
 
 4. **👥 Evaluasi Grup Admin Invoice**:
    - Analisis mendalam tim fakturis (`AKBAR`, `DIDIN`, `JOE`, `RONI`, `NOVIANI`).
@@ -68,3 +68,16 @@ Laporan Produktifitas Admin/
         ├── ViewModelBase.cs              # Base class MVVM INotifyPropertyChanged
         └── MainViewModel.cs              # Controller logika & data binding
 ```
+
+---
+
+## Konfigurasi Database dan Akun Pertama
+
+Aplikasi menggunakan PostgreSQL sebagai penyimpanan utama. Kredensial **tidak** disimpan di source code.
+
+1. Salin `config.example.json` menjadi `config.json` di folder executable, atau buat `%AppData%\LaporanProduktivitasAdmin\config.json`.
+2. Isi `Host`, `Port`, `Database`, `PgUser`, dan `PgPassword` dengan kredensial PostgreSQL khusus aplikasi.
+3. Pada database baru, isi `BootstrapAdminUsername` dan `BootstrapAdminPassword` (minimal 8 karakter) untuk membuat akun administrator pertama. Setelah akun pertama dibuat, hapus nilai `BootstrapAdminPassword` dari konfigurasi.
+4. File `config.json` telah masuk `.gitignore`; jangan commit atau kirimkan file tersebut.
+
+Jika aplikasi gagal membaca atau menyimpan data, periksa `%AppData%\LaporanProduktivitasAdmin\error_log.txt`.

@@ -1,0 +1,9 @@
+{
+  "Host": "192.168.1.10",
+  "Port": 5432,
+  "Database": "laporan_produktivitas",
+  "PgUser": "laporan_app",
+  "PgPassword": "GANTI_DENGAN_PASSWORD_AMAN",
+  "BootstrapAdminUsername": "ADMIN_AWAL",
+  "BootstrapAdminPassword": "GANTI_DENGAN_PASSWORD_ADMIN_AWAL"
+}

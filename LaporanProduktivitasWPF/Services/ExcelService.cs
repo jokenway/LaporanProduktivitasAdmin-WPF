@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -417,27 +418,231 @@ namespace LaporanProduktivitasWPF.Services
             }
         }
 
-        public static void ExportEvaluasiToCsv(string targetPath, IEnumerable<EvaluasiItem> items, int totalNota, int totalSalah, double overallAkurasi, string totalJamText)
+        private static readonly Dictionary<string, string> USER_CODES = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
+            { "MERANGGA RASUMA", "642" },
+            { "DIDIN KURNIAWAN", "692" },
+            { "DIDIN", "692" },
+            { "IQBAL JUL AKBAR", "556" },
+            { "AKBAR", "556" },
+            { "JOE", "665" },
+            { "ABDUL RONI", "619" },
+            { "RONI", "619" },
+            { "NOVIANI KUSUMA DEWI", "706" },
+            { "NOVIANI", "706" },
+            { "STEPHANIE LADO PHILNATHA", "870" },
+            { "STEVI", "870" },
+            { "ANGGINAVANCA ANATAGRACIA LAROBU", "875" },
+            { "GINA", "875" }
+        };
+
+        private static string CsvField(string value)
+        {
+            return "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
+        }
+
+        public static void ExportEvaluasiToCsv(
+            string targetPath,
+            string monthKey,
+            IEnumerable<RawRow> rows,
+            Dictionary<string, EvaluasiItem> manualLogs,
+            IEnumerable<EvaluasiItem> items,
+            int totalNota,
+            int totalSalah,
+            double overallAkurasi,
+            string totalJamText)
+        {
+            var recordList = items != null ? items.ToList() : new List<EvaluasiItem>();
+
+            // Determine year and month number
+            int year = DateTime.Now.Year;
+            if (recordList.Count > 0)
+            {
+                foreach (var rec in recordList)
+                {
+                    var dt = EvaluasiEngine.TryParseDate(rec.Tanggal);
+                    if (dt.HasValue)
+                    {
+                        year = dt.Value.Year;
+                        break;
+                    }
+                }
+            }
+            else if (rows != null)
+            {
+                foreach (var r in rows)
+                {
+                    string d = r.Get("TGBON");
+                    if (string.IsNullOrEmpty(d)) d = r.Get("Tanggal");
+                    var dt = EvaluasiEngine.TryParseDate(d);
+                    if (dt.HasValue)
+                    {
+                        year = dt.Value.Year;
+                        break;
+                    }
+                }
+            }
+
+            int monthNum = 1;
+            string mUpper = (monthKey ?? "JANUARI").Trim().ToUpperInvariant();
+            for (int i = 0; i < INDONESIAN_MONTHS.Length; i++)
+            {
+                if (INDONESIAN_MONTHS[i].Equals(mUpper, StringComparison.OrdinalIgnoreCase))
+                {
+                    monthNum = i + 1;
+                    break;
+                }
+            }
+
+            int daysInMonth = DateTime.DaysInMonth(year, monthNum);
+
+            // Get complete evaluation records from EvaluasiEngine if rows available
+            EvaluasiResult evalRes = null;
+            if (rows != null)
+            {
+                evalRes = EvaluasiEngine.BuildDailyEvaluation(rows, manualLogs, "ALL", "ALL", "", "ADMIN_INVOICE");
+                recordList = evalRes.Records;
+            }
+
+            // Map user daily data: user -> (day -> EvaluasiItem)
+            var userDailyMap = new Dictionary<string, Dictionary<int, EvaluasiItem>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var rec in recordList)
+            {
+                var dt = EvaluasiEngine.TryParseDate(rec.Tanggal);
+                if (!dt.HasValue) continue;
+
+                int day = dt.Value.Day;
+                string u = (rec.User ?? "").Trim().ToUpperInvariant();
+
+                if (!userDailyMap.TryGetValue(u, out var dayMap))
+                {
+                    dayMap = new Dictionary<int, EvaluasiItem>();
+                    userDailyMap[u] = dayMap;
+                }
+                dayMap[day] = rec;
+            }
+
+            var users = evalRes != null && evalRes.AvailableUsers.Count > 0
+                ? evalRes.AvailableUsers
+                : userDailyMap.Keys.OrderBy(x => x).ToList();
+
+            if (users.Count == 0)
+            {
+                users = EvaluasiEngine.ADMIN_INVOICE_USERS.ToList();
+            }
+
+            int grandTotalInput = recordList.Sum(r => r.TotalNota);
+            int grandTotalSalah = recordList.Sum(r => r.NotaSalah);
+
+            int workDaysCount = 0;
+            for (int d = 1; d <= daysInMonth; d++)
+            {
+                var dt = new DateTime(year, monthNum, d);
+                if (dt.DayOfWeek != DayOfWeek.Sunday) workDaysCount++;
+            }
+            if (workDaysCount == 0) workDaysCount = 26;
+
             using (var sw = new StreamWriter(targetPath, false, Encoding.UTF8))
             {
-                sw.WriteLine("NO,TANGGAL,USER FAKTURIS,TOTAL NOTA,NOTA SALAH,AKURASI (%),JAM DATANG,JAM PULANG,DURASI KERJA,KETERANGAN");
-                foreach (var item in items)
+                string commas(int count) => new string(',', count);
+
+                sw.WriteLine(commas(100));
+                sw.WriteLine("REKAP ADMIN NOTA / INVOICING" + commas(99));
+                sw.WriteLine(string.Format("BULAN :,,,{0}", mUpper) + commas(96));
+                sw.WriteLine(string.Format("TAHUN :,,,{0}", year) + commas(96));
+                sw.WriteLine(commas(100));
+
+                var sbHeader1 = new StringBuilder("NO,Kode,NAMA");
+                for (int d = 1; d <= 31; d++)
                 {
-                    sw.WriteLine(string.Format("\"{0}\",\"{1}\",\"{2}\",{3},{4},{5:F1}%,\"{6}\",\"{7}\",\"{8}\",\"{9}\"",
-                        item.No,
-                        item.Tanggal,
-                        (item.User ?? "").Replace("\"", "\"\""),
-                        item.TotalNota,
-                        item.NotaSalah,
-                        item.Akurasi,
-                        item.JamDatang,
-                        item.JamPulang,
-                        item.DurasiText,
-                        (item.Keterangan ?? "").Replace("\"", "\"\"")));
+                    sbHeader1.Append(",input,salah,jam ");
                 }
-                sw.WriteLine(string.Format("\"-\",\"TOTAL KESELURUHAN\",\"-\",{0},{1},{2:F1}%,\"-\",\"-\",\"{3}\",\"-\"",
-                    totalNota, totalSalah, overallAkurasi, totalJamText));
+                sbHeader1.Append(",,TOTAL,,percentase,");
+                sw.WriteLine(sbHeader1.ToString());
+
+                var sbHeader2 = new StringBuilder("tanggal,,");
+                for (int d = 1; d <= 31; d++)
+                {
+                    if (d <= daysInMonth)
+                    {
+                        string dateStr = string.Format("{0:D4}-{1:D2}-{2:D2}", year, monthNum, d);
+                        sbHeader2.Append(string.Format(",{0},,selesai", dateStr));
+                    }
+                    else
+                    {
+                        sbHeader2.Append(",,,");
+                    }
+                }
+                sbHeader2.Append(",,INPUT,SALAH,,");
+                sw.WriteLine(sbHeader2.ToString());
+
+                sw.WriteLine(commas(100));
+                sw.WriteLine(commas(100));
+
+                int userNo = 1;
+                foreach (var u in users)
+                {
+                    string uUpper = u.Trim().ToUpperInvariant();
+                    string code = USER_CODES.TryGetValue(uUpper, out var c) ? c : "";
+                    userDailyMap.TryGetValue(uUpper, out var dayMap);
+
+                    int userTotalInput = 0;
+                    int userTotalSalah = 0;
+
+                    var sbUserRow1 = new StringBuilder(string.Format(CultureInfo.InvariantCulture, "{0},{1},{2}", userNo, CsvField(code), CsvField(uUpper)));
+
+                    for (int d = 1; d <= 31; d++)
+                    {
+                        if (d <= daysInMonth && dayMap != null && dayMap.TryGetValue(d, out var item))
+                        {
+                            int inp = item.TotalNota;
+                            int sal = item.NotaSalah;
+                            string jam = "";
+
+                            if (!string.IsNullOrWhiteSpace(item.Keterangan))
+                            {
+                                jam = item.Keterangan.Trim();
+                            }
+                            else if (!string.IsNullOrWhiteSpace(item.JamDatang) || !string.IsNullOrWhiteSpace(item.JamPulang))
+                            {
+                                jam = string.Format("{0}-{1}", item.JamDatang, item.JamPulang);
+                            }
+
+                            userTotalInput += inp;
+                            userTotalSalah += sal;
+
+                            string inpStr = inp > 0 ? inp.ToString(CultureInfo.InvariantCulture) : "";
+                            string salStr = sal > 0 ? sal.ToString(CultureInfo.InvariantCulture) : "";
+
+                            sbUserRow1.Append(string.Format(CultureInfo.InvariantCulture, ",{0},{1},{2}", inpStr, salStr, CsvField(jam)));
+                        }
+                        else
+                        {
+                            sbUserRow1.Append(",,,");
+                        }
+                    }
+
+                    double pctSalahPerInput = userTotalInput > 0 ? (double)userTotalSalah / userTotalInput : 0.0;
+                    double avgInputPerDay = (double)userTotalInput / workDaysCount;
+                    double pctOfGrandTotal = grandTotalInput > 0 ? (double)userTotalInput / grandTotalInput : 0.0;
+
+                    sbUserRow1.Append(string.Format(CultureInfo.InvariantCulture, ",√,{0},{1},{2},*rata2 salah nota/input nota", userTotalInput, userTotalSalah, pctSalahPerInput));
+                    sw.WriteLine(sbUserRow1.ToString());
+
+                    var sbUserRow2 = new StringBuilder(commas(98));
+                    sbUserRow2.Append(string.Format(CultureInfo.InvariantCulture, "{0},*rata2 input nota/hari kerja", avgInputPerDay));
+                    sw.WriteLine(sbUserRow2.ToString());
+
+                    var sbUserRow3 = new StringBuilder(commas(98));
+                    sbUserRow3.Append(string.Format(CultureInfo.InvariantCulture, "{0},*rata2 input nota/total nota", pctOfGrandTotal));
+                    sw.WriteLine(sbUserRow3.ToString());
+
+                    userNo++;
+                }
+
+                sw.WriteLine(commas(100));
+                sw.WriteLine(commas(100));
+                sw.WriteLine(commas(97) + string.Format(",{0},{1},,", grandTotalInput, grandTotalSalah));
             }
         }
     }

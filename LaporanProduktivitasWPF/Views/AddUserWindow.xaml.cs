@@ -6,13 +6,13 @@ namespace LaporanProduktivitasWPF.Views
 {
     public partial class AddUserWindow : Window
     {
-        private readonly string _createdBy;
+        private readonly LaporanProduktivitasWPF.Models.AppUser _createdBy;
         private readonly bool _canCreateAdmin;
 
-        public AddUserWindow(string createdBy, bool canCreateAdmin)
+        public AddUserWindow(LaporanProduktivitasWPF.Models.AppUser createdBy, bool canCreateAdmin)
         {
             InitializeComponent();
-            _createdBy = createdBy ?? string.Empty;
+            _createdBy = createdBy;
             _canCreateAdmin = canCreateAdmin;
             AdminRoleItem.Visibility = canCreateAdmin ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -33,7 +33,7 @@ namespace LaporanProduktivitasWPF.Views
 
             if (string.Equals(role, "admin", System.StringComparison.OrdinalIgnoreCase) && !_canCreateAdmin)
             {
-                TxtError.Text = "Hanya AKBAR yang dapat membuat akun admin.";
+                TxtError.Text = "Hanya administrator yang dapat membuat akun admin.";
                 TxtError.Visibility = Visibility.Visible;
                 return;
             }

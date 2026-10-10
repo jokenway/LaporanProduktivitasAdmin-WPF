@@ -10,25 +10,34 @@ namespace LaporanProduktivitasWPF.Models
         public string Username { get; set; }
         public string Role { get; set; }   // "admin" | "staff" | "viewer"
 
-        /// <summary>Hanya admin (AKBAR) yang bisa mengimport file Excel.</summary>
-        public bool CanImport => string.Equals(Username, "AKBAR", StringComparison.OrdinalIgnoreCase) || string.Equals(Role, "admin", StringComparison.OrdinalIgnoreCase);
+        public bool IsSuperUser => IsSuperUserName(Username);
 
-        /// <summary>HANYA user AKBAR yang bisa menginput/mengedit Nota Salah.</summary>
-        public bool CanInputNotaSalah => string.Equals(Username, "AKBAR", StringComparison.OrdinalIgnoreCase);
+        public static bool IsSuperUserName(string username) =>
+            string.Equals(username, "AKBAR", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(username, "ST", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Super user atau admin dapat mengimport file Excel.</summary>
+        public bool CanImport => IsSuperUser || string.Equals(Role, "admin", StringComparison.OrdinalIgnoreCase);
+        /// <summary>Hanya administrator yang dapat menghapus data bulan dari database.</summary>
+        public bool CanDeleteMonth => CanImport;
+
+
+        /// <summary>Hanya super user yang bisa menginput/mengedit Nota Salah.</summary>
+        public bool CanInputNotaSalah => IsSuperUser;
         public bool IsReadOnlyNotaSalah => !CanInputNotaSalah;
 
-        /// <summary>Staff dan AKBAR bisa input Jam Datang, Jam Pulang, dan Keterangan. Viewer (ST) tidak bisa.</summary>
-        public bool CanInputAttendance => !string.Equals(Role, "viewer", StringComparison.OrdinalIgnoreCase);
+        /// <summary>Super user dan staff dapat menginput jam kerja dan keterangan.</summary>
+        public bool CanInputAttendance => IsSuperUser || !string.Equals(Role, "viewer", StringComparison.OrdinalIgnoreCase);
         public bool IsReadOnlyAttendance => !CanInputAttendance;
 
         /// <summary>Semua role bisa melihat semua tab.</summary>
         public bool CanViewAll => true;
 
-        /// <summary>Hanya ST dan AKBAR yang bisa menambah user.</summary>
-        public bool CanManageUsers => string.Equals(Username, "AKBAR", StringComparison.OrdinalIgnoreCase) || string.Equals(Username, "ST", StringComparison.OrdinalIgnoreCase);
+        /// <summary>Super user dan administrator dapat menambah user.</summary>
+        public bool CanManageUsers => IsSuperUser || string.Equals(Role, "admin", StringComparison.OrdinalIgnoreCase);
 
-        /// <summary>Hanya AKBAR yang bisa membuat akun dengan role admin.</summary>
-        public bool CanCreateAdmin => string.Equals(Username, "AKBAR", StringComparison.OrdinalIgnoreCase);
+        /// <summary>Super user dan administrator dapat membuat akun administrator.</summary>
+        public bool CanCreateAdmin => CanManageUsers;
 
         public override string ToString() => $"{Username} ({Role})";
     }
@@ -38,11 +47,19 @@ namespace LaporanProduktivitasWPF.Models
     /// </summary>
     public class AppConfig
     {
-        public string Host { get; set; } = "127.0.0.1";
+        public string Host { get; set; } = "";
         public int Port { get; set; } = 5432;
         public string Database { get; set; } = "laporan_produktivitas";
-        public string PgUser { get; set; } = "postgres";
-        public string PgPassword { get; set; } = "admin";
+        public string PgUser { get; set; } = "";
+        public string PgPassword { get; set; } = "";
+        public string BootstrapAdminUsername { get; set; } = "";
+        public string BootstrapAdminPassword { get; set; } = "";
+
+        public bool IsComplete =>
+            !string.IsNullOrWhiteSpace(Host) &&
+            !string.IsNullOrWhiteSpace(Database) &&
+            !string.IsNullOrWhiteSpace(PgUser) &&
+            !string.IsNullOrWhiteSpace(PgPassword);
 
         public string BuildConnectionString()
         {

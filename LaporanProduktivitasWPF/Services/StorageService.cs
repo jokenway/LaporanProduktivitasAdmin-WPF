@@ -34,7 +34,7 @@ namespace LaporanProduktivitasWPF.Services
                 if (!Directory.Exists(AppDataFolder)) Directory.CreateDirectory(AppDataFolder);
                 if (!Directory.Exists(FilesFolder)) Directory.CreateDirectory(FilesFolder);
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi storage lokal", ex); }
         }
 
         // ─────────────────────────────────────────────────
@@ -67,7 +67,7 @@ namespace LaporanProduktivitasWPF.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi storage lokal", ex); }
             return dict;
         }
 
@@ -99,7 +99,7 @@ namespace LaporanProduktivitasWPF.Services
                 string json = JsonSerializer.Serialize(list, options);
                 File.WriteAllText(LogsFilePath, json);
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi storage lokal", ex); }
         }
 
         // ─────────────────────────────────────────────────
@@ -149,7 +149,7 @@ namespace LaporanProduktivitasWPF.Services
 
                 SaveSavedFilesMeta(metas);
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi storage lokal", ex); }
         }
 
         /// <summary>
@@ -167,7 +167,7 @@ namespace LaporanProduktivitasWPF.Services
                 string path = Path.Combine(FilesFolder, meta.CachedFileName);
                 return File.Exists(path) ? path : null;
             }
-            catch { return null; }
+            catch (Exception ex) { AppLogger.LogError("Membaca storage lokal", ex); return null; }
         }
 
         /// <summary>
@@ -192,7 +192,7 @@ namespace LaporanProduktivitasWPF.Services
                     SaveSavedFilesMeta(metas);
                 }
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi storage lokal", ex); }
         }
 
         // ─────────────────────────────────────────────────
@@ -221,7 +221,7 @@ namespace LaporanProduktivitasWPF.Services
                 string json = JsonSerializer.Serialize(metas, options);
                 File.WriteAllText(MetaFilePath, json);
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi storage lokal", ex); }
         }
 
         // ─────────────────────────────────────────────────

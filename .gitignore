@@ -23,3 +23,9 @@ LaporanProduktivitasApp.zip
 
 # VS Code Workspace Settings
 .vscode/
+
+# Per-machine database configuration and distributed installers
+config.json
+**/config.json
+*.vsix
+VC_redist*.exe

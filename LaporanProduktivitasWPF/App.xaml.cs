@@ -17,8 +17,18 @@ namespace LaporanProduktivitasWPF
             DispatcherUnhandledException += App_DispatcherUnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
-            // 1. Baca konfigurasi koneksi (hardcoded default)
-            var config = LoadOrCreateConfig();
+            // 1. Baca konfigurasi koneksi.
+            var config = LoadOrCreateConfig(out string configPath);
+
+            if (!config.IsComplete)
+            {
+                MessageBox.Show(
+                    "Konfigurasi database belum lengkap. Isi Host, Database, PgUser, dan PgPassword di config.json, lalu jalankan ulang aplikasi.\n\n" +
+                    "Lokasi config: " + configPath,
+                    "Konfigurasi Database", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Shutdown();
+                return;
+            }
 
             // 2. Inisialisasi koneksi + buat tabel + seed users
             DatabaseService.Configure(config);
@@ -30,7 +40,7 @@ namespace LaporanProduktivitasWPF
             {
                 MessageBox.Show(
                     "Gagal terhubung ke database:\n" + ex.Message +
-                    "\n\nPastikan server PostgreSQL di 192.168.179.24 dapat diakses.",
+                    "\n\nPeriksa nilai koneksi pada config.json.",
                     "Koneksi Database Gagal",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown();
@@ -44,9 +54,26 @@ namespace LaporanProduktivitasWPF
             main.Show();
         }
 
-        private AppConfig LoadOrCreateConfig()
+        private AppConfig LoadOrCreateConfig(out string activeConfigPath)
         {
-            // Config default — bisa diubah di file config.json
+            // 1. Cek dulu apakah ada config.json di folder aplikasi (sebelah .exe)
+            string exeFolderConfig = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
+            if (File.Exists(exeFolderConfig))
+            {
+                try
+                {
+                    string json = File.ReadAllText(exeFolderConfig);
+                    var cfg = JsonSerializer.Deserialize<AppConfig>(json);
+                    if (cfg != null)
+                    {
+                        activeConfigPath = exeFolderConfig;
+                        return cfg;
+                    }
+                }
+                catch (Exception ex) { AppLogger.LogError("Membaca konfigurasi", ex); }
+            }
+
+            // 2. Jika tidak ada di folder .exe, cek di %AppData%
             string folder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "LaporanProduktivitasAdmin");
@@ -58,16 +85,19 @@ namespace LaporanProduktivitasWPF
                 try
                 {
                     string json = File.ReadAllText(configPath);
-                    return JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
+                    var cfg = JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
+                    activeConfigPath = configPath;
+                    return cfg;
                 }
-                catch { }
+                catch (Exception ex) { AppLogger.LogError("Membaca konfigurasi", ex); }
             }
 
-            // Simpan config default
-            var cfg = new AppConfig();
-            File.WriteAllText(configPath, JsonSerializer.Serialize(cfg,
+            // 3. Buat template tanpa kredensial. File ini tidak boleh di-commit.
+            var defaultCfg = new AppConfig();
+            File.WriteAllText(configPath, JsonSerializer.Serialize(defaultCfg,
                 new JsonSerializerOptions { WriteIndented = true }));
-            return cfg;
+            activeConfigPath = configPath;
+            return defaultCfg;
         }
 
         private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
@@ -87,16 +117,7 @@ namespace LaporanProduktivitasWPF
 
         private void LogError(string tag, Exception ex)
         {
-            try
-            {
-                string folder = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "LaporanProduktivitasAdmin");
-                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-                string logPath = Path.Combine(folder, "error_log.txt");
-                File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{tag}] {ex}\n\n");
-            }
-            catch { }
+            AppLogger.LogError(tag, ex);
         }
     }
 }

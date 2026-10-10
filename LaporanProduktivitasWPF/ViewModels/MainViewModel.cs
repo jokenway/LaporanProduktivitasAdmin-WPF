@@ -273,7 +273,7 @@ namespace LaporanProduktivitasWPF.ViewModels
             get { return _currentUser; }
             set { _currentUser = value; OnPropertyChanged("CurrentUser"); OnPropertyChanged("CurrentUserDisplay"); }
         }
-        public string CurrentUserDisplay => _currentUser != null ? $"{_currentUser.Username} ({_currentUser.Role})" : "";
+        public string CurrentUserDisplay => _currentUser != null ? _currentUser.Username : "";
 
         // Commands
         public ICommand SwitchTabCommand { get; private set; }
@@ -338,6 +338,11 @@ namespace LaporanProduktivitasWPF.ViewModels
             DeleteMonthCommand = new RelayCommand(async param =>
             {
                 if (param == null) return;
+                if (CurrentUser == null || !CurrentUser.CanDeleteMonth)
+                {
+                    MessageBox.Show("Hanya administrator yang dapat menghapus data bulan.", "Akses Ditolak", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
                 string key = param.ToString();
                 var result = MessageBox.Show(
                     "Hapus data bulan " + key + " dari database? Data tidak bisa dikembalikan.",
@@ -370,10 +375,10 @@ namespace LaporanProduktivitasWPF.ViewModels
             {
                 if (CurrentUser == null || !CurrentUser.CanManageUsers)
                 {
-                    MessageBox.Show("Hanya ST dan AKBAR yang dapat menambah user.", "Akses Ditolak", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Hanya administrator yang dapat menambah user.", "Akses Ditolak", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
-                var w = new LaporanProduktivitasWPF.Views.AddUserWindow(CurrentUser.Username, CurrentUser.CanCreateAdmin);
+                var w = new LaporanProduktivitasWPF.Views.AddUserWindow(CurrentUser, CurrentUser.CanCreateAdmin);
                 if (w.ShowDialog() == true)
                 {
                     _ = RefreshAllDataAsync();
@@ -859,27 +864,8 @@ namespace LaporanProduktivitasWPF.ViewModels
 
             foreach (var it in res.Records)
             {
-                it.PropertyChanged += (s, e) =>
-                {
-                    var item = (EvaluasiItem)s;
-                    if (_currentUser == null) return;
-
-                    // 1. Jika Viewer (ST) -> abaikan perubahan
-                    if (!_currentUser.CanInputAttendance && !_currentUser.CanInputNotaSalah)
-                        return;
-
-                    // 2. Jika Staff (misal: JOE, DIDIN, RONI, NOVIANI, STEVI, GINA) -> HANYA boleh edit baris namanya sendiri!
-                    if (!string.Equals(_currentUser.Username, "AKBAR", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (!string.Equals(item.User, _currentUser.Username, StringComparison.OrdinalIgnoreCase))
-                            return;
-                    }
-
-                    _manualLogs[item.Key] = item;
-                    if (_suppressManualSave) return;
-                    SaveManualLogsToStorage();
-                    RecalculateEvaluasiSummary();
-                };
+                it.PropertyChanged -= EvaluasiItem_PropertyChanged;
+                it.PropertyChanged += EvaluasiItem_PropertyChanged;
             }
             EvaluasiItems = new ObservableCollection<EvaluasiItem>(res.Records);
             AdminInvoiceMetrics = new ObservableCollection<AdminInvoiceMetric>(res.UserMetrics);
@@ -891,6 +877,28 @@ namespace LaporanProduktivitasWPF.ViewModels
             EvalTotalJamText = res.Summary.TotalJamKerjaText;
             EvalUserCount = res.Summary.UserCount;
             EvalDateCount = res.Summary.DateCount;
+        }
+
+        private void EvaluasiItem_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            var item = (EvaluasiItem)sender;
+            if (_currentUser == null) return;
+
+            // 1. Jika Viewer (ST) -> abaikan perubahan
+            if (!_currentUser.CanInputAttendance && !_currentUser.CanInputNotaSalah)
+                return;
+
+            // 2. Staff hanya boleh mengedit baris miliknya sendiri.
+            if (!_currentUser.IsSuperUser)
+            {
+                if (!string.Equals(item.User, _currentUser.Username, StringComparison.OrdinalIgnoreCase))
+                    return;
+            }
+
+            _manualLogs[item.Key] = item;
+            if (_suppressManualSave) return;
+            SaveManualLogsToStorage();
+            RecalculateEvaluasiSummary();
         }
 
         private void RecalculateEvaluasiSummary()
@@ -929,8 +937,8 @@ namespace LaporanProduktivitasWPF.ViewModels
             {
                 foreach (var it in EvaluasiItems)
                 {
-                    // Staff hanya boleh mengisi barisnya sendiri; AKBAR dapat mengisi semua baris.
-                    if (!string.Equals(_currentUser.Username, "AKBAR", StringComparison.OrdinalIgnoreCase) &&
+                    // Staff hanya boleh mengisi barisnya sendiri.
+                    if (!_currentUser.IsSuperUser &&
                         !string.Equals(it.User, _currentUser.Username, StringComparison.OrdinalIgnoreCase))
                         continue;
 
@@ -955,9 +963,9 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private async void ResetManualInputs()
         {
-            if (_currentUser == null || !string.Equals(_currentUser.Username, "AKBAR", StringComparison.OrdinalIgnoreCase))
+            if (_currentUser == null || !_currentUser.IsSuperUser)
             {
-                MessageBox.Show("Hanya AKBAR yang dapat mereset seluruh input manual.", "Akses Ditolak", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Hanya super user yang dapat mereset seluruh input manual.", "Akses Ditolak", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -1090,7 +1098,7 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private void ExportEvaluasi()
         {
-            if (EvaluasiItems.Count == 0)
+            if (EvaluasiItems.Count == 0 && (_currentRows == null || _currentRows.Count == 0))
             {
                 MessageBox.Show("Tidak ada data evaluasi untuk diekspor.", "Peringatan", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -1098,16 +1106,16 @@ namespace LaporanProduktivitasWPF.ViewModels
 
             var sfd = new SaveFileDialog
             {
-                Title = "Simpan Laporan Kinerja & Absensi",
+                Title = "Simpan Laporan Rekap Kinerja & Absensi",
                 Filter = "File CSV (*.csv)|*.csv",
-                FileName = string.Format("Laporan_Kinerja_Absensi_{0}_{1}.csv", EvalSelectedUser, EvalSelectedDate)
+                FileName = string.Format("REKAP_ADMIN_NOTA_{0}.csv", string.IsNullOrEmpty(ActiveMonthKey) ? "EVALUASI" : ActiveMonthKey.ToUpperInvariant())
             };
 
             if (sfd.ShowDialog() == true)
             {
                 try
                 {
-                    ExcelService.ExportEvaluasiToCsv(sfd.FileName, EvaluasiItems, EvalTotalNota, EvalTotalSalah, EvalOverallAkurasi, EvalTotalJamText);
+                    ExcelService.ExportEvaluasiToCsv(sfd.FileName, ActiveMonthKey, _currentRows, _manualLogs, EvaluasiItems, EvalTotalNota, EvalTotalSalah, EvalOverallAkurasi, EvalTotalJamText);
                     MessageBox.Show("Laporan evaluasi berhasil diekspor ke: " + sfd.FileName, "Sukses", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)

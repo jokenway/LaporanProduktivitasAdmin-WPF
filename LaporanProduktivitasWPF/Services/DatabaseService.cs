@@ -14,10 +14,12 @@ namespace LaporanProduktivitasWPF.Services
     public static class DatabaseService
     {
         private static string _connectionString;
+        private static AppConfig _config;
 
         public static void Configure(AppConfig config)
         {
-            _connectionString = config.BuildConnectionString();
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _connectionString = _config.BuildConnectionString();
         }
 
         // ─────────────────────────────────────────────────
@@ -87,36 +89,25 @@ namespace LaporanProduktivitasWPF.Services
 
         private static async Task SeedUsersAsync(NpgsqlConnection conn)
         {
-            // Cek apakah sudah ada user
             using var checkCmd = new NpgsqlCommand("SELECT COUNT(*) FROM app_users", conn);
             long count = (long)await checkCmd.ExecuteScalarAsync();
             if (count > 0) return;
 
-            // Definisi user awal: username, password (nama+123), role
-            var users = new[]
+            if (_config == null || string.IsNullOrWhiteSpace(_config.BootstrapAdminUsername) ||
+                string.IsNullOrWhiteSpace(_config.BootstrapAdminPassword) || _config.BootstrapAdminPassword.Length < 8)
             {
-                ("AKBAR",   "akbar123",   "admin"),
-                ("DIDIN",   "didin123",   "staff"),
-                ("JOE",     "joe123",     "staff"),
-                ("RONI",    "roni123",    "staff"),
-                ("NOVIANI", "noviani123", "staff"),
-                ("STEVI",   "stevi123",   "staff"),
-                ("GINA",    "gina123",    "staff"),
-                ("ST",      "st123",      "viewer"),
-            };
-
-            string insertSql = "INSERT INTO app_users (username, password_hash, role) VALUES (@u, @h, @r)";
-            foreach (var (username, password, role) in users)
-            {
-                string hash = BCrypt.Net.BCrypt.HashPassword(password);
-                using var cmd = new NpgsqlCommand(insertSql, conn);
-                cmd.Parameters.AddWithValue("u", username);
-                cmd.Parameters.AddWithValue("h", hash);
-                cmd.Parameters.AddWithValue("r", role);
-                await cmd.ExecuteNonQueryAsync();
+                throw new InvalidOperationException(
+                    "Database belum memiliki pengguna. Isi BootstrapAdminUsername dan BootstrapAdminPassword (minimal 8 karakter) di config.json untuk membuat admin pertama.");
             }
-        }
 
+            string username = _config.BootstrapAdminUsername.Trim();
+            string passwordHash = BCrypt.Net.BCrypt.HashPassword(_config.BootstrapAdminPassword);
+            const string insertSql = "INSERT INTO app_users (username, password_hash, role) VALUES (@u, @h, 'admin')";
+            using var cmd = new NpgsqlCommand(insertSql, conn);
+            cmd.Parameters.AddWithValue("u", username);
+            cmd.Parameters.AddWithValue("h", passwordHash);
+            await cmd.ExecuteNonQueryAsync();
+        }
         // ─────────────────────────────────────────────────
         // Autentikasi
         // ─────────────────────────────────────────────────
@@ -145,7 +136,7 @@ namespace LaporanProduktivitasWPF.Services
 
                 return new AppUser { Username = dbUsername, Role = role };
             }
-            catch { return null; }
+            catch (Exception ex) { AppLogger.LogError("Autentikasi database", ex); return null; }
         }
 
         // ─────────────────────────────────────────────────
@@ -167,22 +158,29 @@ namespace LaporanProduktivitasWPF.Services
                     list.Add(reader.GetString(0).ToUpperInvariant());
                 }
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi database", ex); }
             return list;
         }
 
-        public static async Task<bool> AddUserAsync(string username, string password, string role, string createdBy)
+        public static async Task<bool> AddUserAsync(string username, string password, string role, AppUser createdBy)
         {
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
                 return false;
-            if (!string.Equals(createdBy, "AKBAR", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(createdBy, "ST", StringComparison.OrdinalIgnoreCase))
+            username = username.Trim();
+            if (username.Length > 50 || password.Length < 8)
+                return false;
+            foreach (char character in username)
+            {
+                if (!char.IsLetterOrDigit(character) && character != '_' && character != '-')
+                    return false;
+            }
+            if (createdBy == null || !createdBy.CanManageUsers)
                 return false;
 
             string normalizedRole = (role ?? string.Empty).Trim().ToLowerInvariant();
             if (normalizedRole != "admin" && normalizedRole != "staff" && normalizedRole != "viewer")
                 return false;
-            if (normalizedRole == "admin" && !string.Equals(createdBy, "AKBAR", StringComparison.OrdinalIgnoreCase))
+            if (normalizedRole == "admin" && !createdBy.CanCreateAdmin)
                 return false;
 
             try
@@ -198,11 +196,13 @@ namespace LaporanProduktivitasWPF.Services
                 await cmd.ExecuteNonQueryAsync();
                 return true;
             }
-            catch { return false; }
+            catch (Exception ex) { AppLogger.LogError("Operasi database", ex); return false; }
         }
 
         public static async Task<bool> UpdateUserPasswordAsync(string username, string newPassword)
         {
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(newPassword) || newPassword.Length < 8)
+                return false;
             try
             {
                 using var conn = new NpgsqlConnection(_connectionString);
@@ -215,7 +215,7 @@ namespace LaporanProduktivitasWPF.Services
                 int rows = await cmd.ExecuteNonQueryAsync();
                 return rows > 0;
             }
-            catch { return false; }
+            catch (Exception ex) { AppLogger.LogError("Operasi database", ex); return false; }
         }
 
         // ─────────────────────────────────────────────────
@@ -248,7 +248,7 @@ namespace LaporanProduktivitasWPF.Services
                     });
                 }
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi database", ex); }
             return result;
         }
 
@@ -343,7 +343,7 @@ namespace LaporanProduktivitasWPF.Services
                     result.Add(new RawRow { Cells = cells ?? new Dictionary<string, string>() });
                 }
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi database", ex); }
             return result;
         }
 
@@ -357,7 +357,7 @@ namespace LaporanProduktivitasWPF.Services
                 cmd.Parameters.AddWithValue("k", monthKey);
                 await cmd.ExecuteNonQueryAsync();
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi database", ex); }
         }
 
         // ─────────────────────────────────────────────────
@@ -389,7 +389,7 @@ namespace LaporanProduktivitasWPF.Services
                     };
                 }
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("Operasi database", ex); }
             return dict;
         }
 
@@ -481,7 +481,7 @@ namespace LaporanProduktivitasWPF.Services
                 await conn.OpenAsync();
                 return true;
             }
-            catch { return false; }
+            catch (Exception ex) { AppLogger.LogError("Operasi database", ex); return false; }
         }
     }
 }

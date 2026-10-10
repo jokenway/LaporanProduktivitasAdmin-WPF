@@ -71,7 +71,7 @@ namespace LaporanProduktivitasWPF
             string header = e.Column.Header?.ToString() ?? "";
             string loggedInUser = _vm.CurrentUser.Username ?? "";
 
-            // 1. Kolom "Nota Salah": HANYA USER AKBAR yang boleh menginput/mengedit!
+            // 1. Kolom "Nota Salah": hanya super user yang boleh menginput/mengedit.
             if (header.Contains("Nota Salah"))
             {
                 if (!_vm.CurrentUser.CanInputNotaSalah)
@@ -88,10 +88,8 @@ namespace LaporanProduktivitasWPF
                 return;
             }
 
-            // 3. Jika Staff (misal: JOE, DIDIN, RONI, NOVIANI, STEVI, GINA):
-            //    HANYA boleh menginput/mengedit jam datang, jam pulang, & catatan pada BARIS MILIKNYA SENDIRI!
-            //    Jika AKBAR -> boleh edit baris siapa saja.
-            if (!string.Equals(loggedInUser, "AKBAR", System.StringComparison.OrdinalIgnoreCase))
+            // 3. Staff hanya boleh mengedit absensi pada baris miliknya sendiri.
+            if (!_vm.CurrentUser.IsSuperUser)
             {
                 if (!string.Equals(item.User, loggedInUser, System.StringComparison.OrdinalIgnoreCase))
                 {
