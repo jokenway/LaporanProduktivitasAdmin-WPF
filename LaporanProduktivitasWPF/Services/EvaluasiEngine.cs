@@ -252,7 +252,8 @@ namespace LaporanProduktivitasWPF.Services
                     NotaSalah = savedLog != null ? savedLog.NotaSalah : 0,
                     JamDatang = savedLog != null ? savedLog.JamDatang : "",
                     JamPulang = savedLog != null ? savedLog.JamPulang : "",
-                    Keterangan = savedLog != null ? savedLog.Keterangan : ""
+                    Keterangan = savedLog != null ? savedLog.Keterangan : "",
+                    ManualLogUpdatedAt = savedLog != null ? savedLog.ManualLogUpdatedAt : null
                 };
 
                 item.UpdateAkurasi();

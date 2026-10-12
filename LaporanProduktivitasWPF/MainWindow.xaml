@@ -466,7 +466,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="User (USID)" Binding="{Binding User}" Width="160" />
                                     <DataGridTextColumn Header="Total Nota (Filter Aktif)" Binding="{Binding TotalNota, StringFormat='{}{0:N0}'}" Width="200" />
-                                    <DataGridTextColumn Header="Kontribusi (%)" Binding="{Binding ContributionPct, StringFormat='{}{0:F1}%'}" Width="130" />
+                                    <DataGridTextColumn Header="Rata-rata Input Nota / Total Nota (%)" Binding="{Binding ContributionPct, StringFormat='{}{0:F1}%'}" Width="210" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </StackPanel>
@@ -490,7 +490,7 @@
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <Button Content="Isi Jam Standar (08-17)" Command="{Binding ApplyDefaultHoursCommand}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
-                                <Button Content="Export CSV" Command="{Binding ExportEvaluasiCommand}" Style="{StaticResource SuccessButton}" Margin="0,0,8,0" />
+                                <Button Content="📥 Export Excel (.xlsx)" ToolTip="Ekspor Rekap Invoice Admin ke file Excel (.xlsx) atau CSV (.csv)" Command="{Binding ExportEvaluasiCommand}" Style="{StaticResource SuccessButton}" Margin="0,0,8,0" />
                                 <Button Content="Reset Input" Command="{Binding ResetInputsCommand}" Style="{StaticResource ModernButton}" />
                             </StackPanel>
                         </Grid>
@@ -630,11 +630,18 @@
                     <!-- Ringkasan Performa Admin Invoice (embedded) -->
                     <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="20" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" Margin="0,16,0,0">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                <TextBlock Text="👥 Ringkasan Performa Tim Fakturis" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
-                                <TextBlock Text="{Binding AdminInvoiceTotalNota, StringFormat='{}   |   Total Nota Tim: {0:N0}'}" FontSize="12" Foreground="{StaticResource BrandPrimaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
-                                <TextBlock Text="  (AKBAR, DIDIN, JOE, RONI, NOVIANI, STEVI, GINA)" FontSize="11" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="👥 Ringkasan Performa Tim Fakturis" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
+                                    <TextBlock Text="{Binding AdminInvoiceTotalNota, StringFormat='{}   |   Total Nota Tim: {0:N0}'}" FontSize="12" Foreground="{StaticResource BrandPrimaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                    <TextBlock Text="  (AKBAR, DIDIN, JOE, RONI, NOVIANI, STEVI, GINA)" FontSize="11" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="📥 Export Excel (.xlsx)" ToolTip="Ekspor Rekap Invoice Admin ke file Excel (.xlsx) atau CSV (.csv)" Command="{Binding ExportEvaluasiCommand}" Style="{StaticResource SuccessButton}" Height="28" Padding="12,0" />
+                            </Grid>
                             <DataGrid ItemsSource="{Binding AdminInvoiceMetrics}" AutoGenerateColumns="False" CanUserAddRows="False"
                                       IsReadOnly="True" MaxHeight="200" Background="{StaticResource CardDarkBrush}"
                                       Foreground="{StaticResource TextLightBrush}" RowBackground="{StaticResource CardDarkBrush}"
@@ -648,7 +655,7 @@
                                     <DataGridTextColumn Header="Total Salah" Binding="{Binding TotalSalah, StringFormat='{}{0:N0}'}" Width="120" />
                                     <DataGridTextColumn Header="Error / Total Tim (%)" Binding="{Binding SalahPercentage, StringFormat='{}{0:F1}%'}" Width="160" />
                                     <DataGridTextColumn Header="Rata-rata Nota / Hari Kerja" Binding="{Binding AverageNotaPerDay, StringFormat='{}{0:F1} nota'}" Width="190" />
-                                    <DataGridTextColumn Header="Kontribusi ke Total Tim (%)" Binding="{Binding ContributionPercentage, StringFormat='{}{0:F1}%'}" Width="180" />
+                                    <DataGridTextColumn Header="Rata-rata Input Nota / Total Nota (%)" Binding="{Binding ContributionPercentage, StringFormat='{}{0:F1}%'}" Width="220" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </StackPanel>

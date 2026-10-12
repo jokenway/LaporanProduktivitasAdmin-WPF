@@ -10,7 +10,9 @@ namespace LaporanProduktivitasWPF.Models
         public string Username { get; set; }
         public string Role { get; set; }   // "admin" | "staff" | "viewer"
 
-        public bool IsSuperUser => IsSuperUserName(Username);
+        // Nama khusus hanya memperoleh hak superuser bila akun tersebut memang admin di database.
+        public bool IsSuperUser => IsSuperUserName(Username) && string.Equals(Role, "admin", StringComparison.OrdinalIgnoreCase);
+        public bool CanEditAllEvaluation => IsSuperUser || string.Equals(Role, "admin", StringComparison.OrdinalIgnoreCase);
 
         public static bool IsSuperUserName(string username) =>
             string.Equals(username, "AKBAR", StringComparison.OrdinalIgnoreCase) ||
@@ -23,11 +25,11 @@ namespace LaporanProduktivitasWPF.Models
 
 
         /// <summary>Hanya super user yang bisa menginput/mengedit Nota Salah.</summary>
-        public bool CanInputNotaSalah => IsSuperUser;
+        public bool CanInputNotaSalah => CanEditAllEvaluation;
         public bool IsReadOnlyNotaSalah => !CanInputNotaSalah;
 
         /// <summary>Super user dan staff dapat menginput jam kerja dan keterangan.</summary>
-        public bool CanInputAttendance => IsSuperUser || !string.Equals(Role, "viewer", StringComparison.OrdinalIgnoreCase);
+        public bool CanInputAttendance => CanEditAllEvaluation || !string.Equals(Role, "viewer", StringComparison.OrdinalIgnoreCase);
         public bool IsReadOnlyAttendance => !CanInputAttendance;
 
         /// <summary>Semua role bisa melihat semua tab.</summary>

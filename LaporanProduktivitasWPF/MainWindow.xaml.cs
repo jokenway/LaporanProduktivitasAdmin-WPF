@@ -81,7 +81,7 @@ namespace LaporanProduktivitasWPF
                 }
             }
 
-            // 2. Jika user ST (Viewer) -> kunci semua kolom input
+            // 2. Viewer dikunci dari seluruh kolom input. ST adalah super user, bukan viewer.
             if (!_vm.CurrentUser.CanInputAttendance && !_vm.CurrentUser.CanInputNotaSalah)
             {
                 e.Cancel = true;
@@ -89,7 +89,7 @@ namespace LaporanProduktivitasWPF
             }
 
             // 3. Staff hanya boleh mengedit absensi pada baris miliknya sendiri.
-            if (!_vm.CurrentUser.IsSuperUser)
+            if (!_vm.CurrentUser.CanEditAllEvaluation)
             {
                 if (!string.Equals(item.User, loggedInUser, System.StringComparison.OrdinalIgnoreCase))
                 {

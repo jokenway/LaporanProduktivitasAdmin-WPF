@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Npgsql;
@@ -33,6 +34,8 @@ namespace LaporanProduktivitasWPF.Services
 
             // Buat tabel jika belum ada
             await CreateTablesAsync(conn);
+            await MigrateLegacyManualLogMonthsAsync(conn);
+            await AddManualLogForeignKeyAsync(conn);
 
             // Seed users awal jika tabel kosong
             await SeedUsersAsync(conn);
@@ -74,6 +77,7 @@ namespace LaporanProduktivitasWPF.Services
 
                 CREATE TABLE IF NOT EXISTS manual_logs (
                     id          SERIAL PRIMARY KEY,
+                    month_key   VARCHAR(20) NOT NULL DEFAULT '',
                     log_key     VARCHAR(255) NOT NULL UNIQUE,
                     nota_salah  INTEGER DEFAULT 0,
                     jam_datang  VARCHAR(10) DEFAULT '',
@@ -82,6 +86,11 @@ namespace LaporanProduktivitasWPF.Services
                     updated_at  TIMESTAMP DEFAULT NOW(),
                     updated_by  VARCHAR(50) DEFAULT ''
                 );
+
+                -- Migrasi instalasi lama: input manual harus dipisahkan per bulan.
+                ALTER TABLE manual_logs ADD COLUMN IF NOT EXISTS month_key VARCHAR(20) NOT NULL DEFAULT '';
+                ALTER TABLE manual_logs DROP CONSTRAINT IF EXISTS manual_logs_log_key_key;
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_manual_logs_month_key_log_key ON manual_logs(month_key, log_key);
             ";
             using var cmd = new NpgsqlCommand(sql, conn);
             await cmd.ExecuteNonQueryAsync();
@@ -107,6 +116,56 @@ namespace LaporanProduktivitasWPF.Services
             cmd.Parameters.AddWithValue("u", username);
             cmd.Parameters.AddWithValue("h", passwordHash);
             await cmd.ExecuteNonQueryAsync();
+        }
+
+        private static async Task MigrateLegacyManualLogMonthsAsync(NpgsqlConnection conn)
+        {
+            var existingMonthKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var monthsCmd = new NpgsqlCommand("SELECT month_key FROM month_files", conn))
+            using (var monthsReader = await monthsCmd.ExecuteReaderAsync())
+                while (await monthsReader.ReadAsync()) existingMonthKeys.Add(monthsReader.GetString(0));
+
+            var updates = new List<(int Id, string MonthKey)>();
+            using (var cmd = new NpgsqlCommand("SELECT id, log_key FROM manual_logs WHERE month_key = ''", conn))
+            using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    string key = reader.GetString(1);
+                    string[] parts = key.Split(new[] { "___" }, StringSplitOptions.None);
+                    if (parts.Length < 2) continue;
+                    var date = EvaluasiEngine.TryParseDate(parts[parts.Length - 1]);
+                    if (date.HasValue)
+                    {
+                        string modernKey = string.Format("{0:D4}-{1:D2}", date.Value.Year, date.Value.Month);
+                        // Instalasi lama menyimpan bulan sebagai nama saja (mis. JULI).
+                        // Pertahankan referensi itu agar log historis tidak terhapus saat FK ditambahkan.
+                        string legacyKey = ExcelService.INDONESIAN_MONTHS[date.Value.Month - 1];
+                        updates.Add((reader.GetInt32(0), existingMonthKeys.Contains(modernKey) ? modernKey : legacyKey));
+                    }
+                }
+            }
+
+            foreach (var update in updates)
+            {
+                using var cmd = new NpgsqlCommand("UPDATE manual_logs SET month_key = @monthKey WHERE id = @id", conn);
+                cmd.Parameters.AddWithValue("monthKey", update.MonthKey);
+                cmd.Parameters.AddWithValue("id", update.Id);
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        private static async Task AddManualLogForeignKeyAsync(NpgsqlConnection conn)
+        {
+            // Log untuk bulan yang sudah tidak ada tidak lagi dapat ditampilkan dan
+            // harus dibuang sebelum FK/cascade dapat menjaga integritas berikutnya.
+            using (var cleanup = new NpgsqlCommand("DELETE FROM manual_logs ml WHERE NOT EXISTS (SELECT 1 FROM month_files mf WHERE mf.month_key = ml.month_key)", conn))
+                await cleanup.ExecuteNonQueryAsync();
+            using var constraint = new NpgsqlCommand(@"DO $$ BEGIN
+                ALTER TABLE manual_logs ADD CONSTRAINT fk_manual_logs_month
+                FOREIGN KEY (month_key) REFERENCES month_files(month_key) ON DELETE CASCADE;
+            EXCEPTION WHEN duplicate_object THEN NULL; END $$;", conn);
+            await constraint.ExecuteNonQueryAsync();
         }
         // ─────────────────────────────────────────────────
         // Autentikasi
@@ -258,14 +317,19 @@ namespace LaporanProduktivitasWPF.Services
         /// </summary>
         public static async Task SaveMonthDataAsync(
             string monthKey, string label, string fileName,
-            string sheetName, int rowCount, string importedBy,
-            List<RawRow> rows)
+            string defaultSheetName, string monthName, int year, int rowCount, string importedBy,
+            IEnumerable<ExcelSheetData> sheets)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
-            using var tx = await conn.BeginTransactionAsync();
+            using var tx = conn.BeginTransaction();
             try
             {
+                using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtext(@lockKey))", conn, tx))
+                {
+                    lockCmd.Parameters.AddWithValue("lockKey", "month:" + monthKey);
+                    await lockCmd.ExecuteNonQueryAsync();
+                }
                 // Hapus jika sudah ada (CASCADE hapus excel_rows)
                 using (var delCmd = new NpgsqlCommand("DELETE FROM month_files WHERE month_key = @k", conn, tx))
                 {
@@ -281,10 +345,10 @@ namespace LaporanProduktivitasWPF.Services
                 {
                     metaCmd.Parameters.AddWithValue("k", monthKey);
                     metaCmd.Parameters.AddWithValue("lbl", label ?? monthKey);
-                    metaCmd.Parameters.AddWithValue("mn", monthKey);
-                    metaCmd.Parameters.AddWithValue("yr", DateTime.Now.Year);
+                    metaCmd.Parameters.AddWithValue("mn", monthName ?? "");
+                    metaCmd.Parameters.AddWithValue("yr", year);
                     metaCmd.Parameters.AddWithValue("fn", fileName ?? "");
-                    metaCmd.Parameters.AddWithValue("sn", sheetName ?? "");
+                    metaCmd.Parameters.AddWithValue("sn", defaultSheetName ?? "");
                     metaCmd.Parameters.AddWithValue("rc", rowCount);
                     metaCmd.Parameters.AddWithValue("ib", importedBy ?? "");
                     await metaCmd.ExecuteNonQueryAsync();
@@ -294,24 +358,39 @@ namespace LaporanProduktivitasWPF.Services
                 using (var writer = await conn.BeginBinaryImportAsync(
                     "COPY excel_rows (month_key, sheet_name, cells) FROM STDIN (FORMAT BINARY)"))
                 {
-                    foreach (var row in rows)
+                    foreach (var sheet in sheets ?? Enumerable.Empty<ExcelSheetData>())
                     {
-                        string json = JsonSerializer.Serialize(row.Cells);
-                        await writer.StartRowAsync();
-                        await writer.WriteAsync(monthKey, NpgsqlTypes.NpgsqlDbType.Varchar);
-                        await writer.WriteAsync(sheetName ?? "", NpgsqlTypes.NpgsqlDbType.Varchar);
-                        await writer.WriteAsync(json, NpgsqlTypes.NpgsqlDbType.Jsonb);
+                        foreach (var row in sheet.Rows ?? new List<RawRow>())
+                        {
+                            string json = JsonSerializer.Serialize(row.Cells);
+                            await writer.StartRowAsync();
+                            await writer.WriteAsync(monthKey, NpgsqlTypes.NpgsqlDbType.Varchar);
+                            await writer.WriteAsync(sheet.SheetName ?? "", NpgsqlTypes.NpgsqlDbType.Varchar);
+                            await writer.WriteAsync(json, NpgsqlTypes.NpgsqlDbType.Jsonb);
+                        }
                     }
                     await writer.CompleteAsync();
                 }
 
-                await tx.CommitAsync();
+                tx.Commit();
             }
             catch
             {
-                await tx.RollbackAsync();
+                tx.Rollback();
                 throw;
             }
+        }
+
+        public static async Task<List<string>> GetMonthSheetNamesAsync(string monthKey)
+        {
+            var result = new List<string>();
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+            using var cmd = new NpgsqlCommand("SELECT DISTINCT sheet_name FROM excel_rows WHERE month_key = @k ORDER BY sheet_name", conn);
+            cmd.Parameters.AddWithValue("k", monthKey);
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync()) result.Add(reader.GetString(0));
+            return result;
         }
 
         private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
@@ -340,31 +419,44 @@ namespace LaporanProduktivitasWPF.Services
                 {
                     string json = reader.GetString(0);
                     var cells = JsonSerializer.Deserialize<Dictionary<string, string>>(json, _jsonOptions);
-                    result.Add(new RawRow { Cells = cells ?? new Dictionary<string, string>() });
+                    // Dictionary hasil deserialisasi default-nya case-sensitive, tidak sama
+                    // dengan RawRow baru dan dapat membuat header Excel tak ditemukan.
+                    result.Add(new RawRow
+                    {
+                        Cells = new Dictionary<string, string>(cells ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase)
+                    });
                 }
             }
             catch (Exception ex) { AppLogger.LogError("Operasi database", ex); }
             return result;
         }
 
-        public static async Task DeleteMonthAsync(string monthKey)
+        public static async Task<bool> DeleteMonthAsync(string monthKey)
         {
             try
             {
                 using var conn = new NpgsqlConnection(_connectionString);
                 await conn.OpenAsync();
-                using var cmd = new NpgsqlCommand("DELETE FROM month_files WHERE month_key = @k", conn);
+                using var tx = conn.BeginTransaction();
+                using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtext(@lockKey))", conn, tx))
+                {
+                    lockCmd.Parameters.AddWithValue("lockKey", "month:" + monthKey);
+                    await lockCmd.ExecuteNonQueryAsync();
+                }
+                using var cmd = new NpgsqlCommand("DELETE FROM month_files WHERE month_key = @k", conn, tx);
                 cmd.Parameters.AddWithValue("k", monthKey);
-                await cmd.ExecuteNonQueryAsync();
+                bool deleted = await cmd.ExecuteNonQueryAsync() > 0;
+                tx.Commit();
+                return deleted;
             }
-            catch (Exception ex) { AppLogger.LogError("Operasi database", ex); }
+            catch (Exception ex) { AppLogger.LogError("Operasi database", ex); return false; }
         }
 
         // ─────────────────────────────────────────────────
         // Manual Logs
         // ─────────────────────────────────────────────────
 
-        public static async Task<Dictionary<string, EvaluasiItem>> LoadManualLogsAsync()
+        public static async Task<Dictionary<string, EvaluasiItem>> LoadManualLogsAsync(string monthKey)
         {
             var dict = new Dictionary<string, EvaluasiItem>(StringComparer.OrdinalIgnoreCase);
             try
@@ -372,8 +464,9 @@ namespace LaporanProduktivitasWPF.Services
                 using var conn = new NpgsqlConnection(_connectionString);
                 await conn.OpenAsync();
 
-                string sql = "SELECT log_key, nota_salah, jam_datang, jam_pulang, keterangan FROM manual_logs";
+                string sql = "SELECT log_key, nota_salah, jam_datang, jam_pulang, keterangan, updated_at FROM manual_logs WHERE month_key = @monthKey";
                 using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("monthKey", monthKey ?? "");
                 using var reader = await cmd.ExecuteReaderAsync();
 
                 while (await reader.ReadAsync())
@@ -386,6 +479,7 @@ namespace LaporanProduktivitasWPF.Services
                         JamDatang = reader.IsDBNull(2) ? "" : reader.GetString(2),
                         JamPulang = reader.IsDBNull(3) ? "" : reader.GetString(3),
                         Keterangan = reader.IsDBNull(4) ? "" : reader.GetString(4),
+                        ManualLogUpdatedAt = reader.IsDBNull(5) ? null : reader.GetDateTime(5),
                     };
                 }
             }
@@ -393,26 +487,32 @@ namespace LaporanProduktivitasWPF.Services
             return dict;
         }
 
-        public static async Task SaveManualLogAsync(EvaluasiItem item, string updatedBy)
+        public static async Task SaveManualLogAsync(EvaluasiItem item, string updatedBy, string monthKey)
         {
             if (item == null || string.IsNullOrEmpty(item.Key)) return;
-            await SaveAllManualLogsAsync(new[] { item }, updatedBy);
+            await SaveAllManualLogsAsync(new[] { item }, updatedBy, monthKey);
         }
 
         /// <summary>
         /// Simpan semua manual logs sekaligus (dipakai saat SaveChanges).
         /// </summary>
-        public static async Task SaveAllManualLogsAsync(IEnumerable<EvaluasiItem> items, string updatedBy)
+        public static async Task<Dictionary<string, DateTime?>> SaveAllManualLogsAsync(IEnumerable<EvaluasiItem> items, string updatedBy, string monthKey)
         {
             var itemList = new List<EvaluasiItem>(items ?? Array.Empty<EvaluasiItem>());
-            if (itemList.Count == 0) return;
+            var savedVersions = new Dictionary<string, DateTime?>();
+            if (itemList.Count == 0) return savedVersions;
 
-            await using var conn = new NpgsqlConnection(_connectionString);
+            using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
-            await using var transaction = await conn.BeginTransactionAsync();
+            using var transaction = conn.BeginTransaction();
 
             try
             {
+                using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtext(@lockKey))", conn, transaction))
+                {
+                    lockCmd.Parameters.AddWithValue("lockKey", "month:" + (monthKey ?? ""));
+                    await lockCmd.ExecuteNonQueryAsync();
+                }
                 foreach (var item in itemList)
                 {
                     if (item == null || string.IsNullOrEmpty(item.Key)) continue;
@@ -424,49 +524,73 @@ namespace LaporanProduktivitasWPF.Services
 
                     if (isEmpty)
                     {
-                        await using var delCmd = new NpgsqlCommand("DELETE FROM manual_logs WHERE log_key = @k", conn, transaction);
+                        if (!item.ManualLogUpdatedAt.HasValue) continue;
+                        using var delCmd = new NpgsqlCommand("DELETE FROM manual_logs WHERE month_key = @monthKey AND log_key = @k AND updated_at = @version", conn, transaction);
+                        delCmd.Parameters.AddWithValue("monthKey", monthKey ?? "");
                         delCmd.Parameters.AddWithValue("k", item.Key);
-                        await delCmd.ExecuteNonQueryAsync();
+                        delCmd.Parameters.AddWithValue("version", item.ManualLogUpdatedAt.Value);
+                        if (await delCmd.ExecuteNonQueryAsync() == 0)
+                            throw new InvalidOperationException("Data telah diubah oleh pengguna lain. Muat ulang bulan sebelum menyimpan kembali.");
                         continue;
                     }
 
-                    const string sql = @"
-                        INSERT INTO manual_logs (log_key, nota_salah, jam_datang, jam_pulang, keterangan, updated_by, updated_at)
-                        VALUES (@k, @ns, @jd, @jp, @ket, @ub, NOW())
-                        ON CONFLICT (log_key) DO UPDATE SET
-                            nota_salah  = EXCLUDED.nota_salah,
-                            jam_datang  = EXCLUDED.jam_datang,
-                            jam_pulang  = EXCLUDED.jam_pulang,
-                            keterangan  = EXCLUDED.keterangan,
-                            updated_by  = EXCLUDED.updated_by,
-                            updated_at  = NOW()";
+                    const string updateSql = @"
+                        UPDATE manual_logs SET
+                            nota_salah  = @ns,
+                            jam_datang  = @jd,
+                            jam_pulang  = @jp,
+                            keterangan  = @ket,
+                            updated_by  = @ub,
+                            updated_at  = NOW()
+                        WHERE month_key = @monthKey AND log_key = @k AND updated_at = @version
+                        RETURNING updated_at";
 
-                    await using var cmd = new NpgsqlCommand(sql, conn, transaction);
+                    const string insertSql = @"
+                        INSERT INTO manual_logs (month_key, log_key, nota_salah, jam_datang, jam_pulang, keterangan, updated_by, updated_at)
+                        VALUES (@monthKey, @k, @ns, @jd, @jp, @ket, @ub, NOW())
+                        ON CONFLICT (month_key, log_key) DO NOTHING
+                        RETURNING updated_at";
+
+                    using var cmd = new NpgsqlCommand(item.ManualLogUpdatedAt.HasValue ? updateSql : insertSql, conn, transaction);
+                    cmd.Parameters.AddWithValue("monthKey", monthKey ?? "");
                     cmd.Parameters.AddWithValue("k", item.Key);
                     cmd.Parameters.AddWithValue("ns", item.NotaSalah);
                     cmd.Parameters.AddWithValue("jd", item.JamDatang ?? "");
                     cmd.Parameters.AddWithValue("jp", item.JamPulang ?? "");
                     cmd.Parameters.AddWithValue("ket", item.Keterangan ?? "");
                     cmd.Parameters.AddWithValue("ub", updatedBy ?? "");
-                    await cmd.ExecuteNonQueryAsync();
+                    if (item.ManualLogUpdatedAt.HasValue) cmd.Parameters.AddWithValue("version", item.ManualLogUpdatedAt.Value);
+                    var version = await cmd.ExecuteScalarAsync();
+                    if (version == null)
+                        throw new InvalidOperationException("Data telah diubah oleh pengguna lain. Muat ulang bulan sebelum menyimpan kembali.");
+                    savedVersions[item.Key] = (DateTime)version;
                 }
 
-                await transaction.CommitAsync();
+                transaction.Commit();
+                return savedVersions;
             }
             catch
             {
-                await transaction.RollbackAsync();
+                transaction.Rollback();
                 throw;
             }
         }
 
         /// <summary>Menghapus seluruh input manual. Hanya dipanggil oleh aksi reset administrator.</summary>
-        public static async Task DeleteAllManualLogsAsync()
+        public static async Task DeleteAllManualLogsAsync(string monthKey)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
-            using var cmd = new NpgsqlCommand("DELETE FROM manual_logs", conn);
+            using var tx = conn.BeginTransaction();
+            using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtext(@lockKey))", conn, tx))
+            {
+                lockCmd.Parameters.AddWithValue("lockKey", "month:" + (monthKey ?? ""));
+                await lockCmd.ExecuteNonQueryAsync();
+            }
+            using var cmd = new NpgsqlCommand("DELETE FROM manual_logs WHERE month_key = @monthKey", conn, tx);
+            cmd.Parameters.AddWithValue("monthKey", monthKey ?? "");
             await cmd.ExecuteNonQueryAsync();
+            tx.Commit();
         }
 
         // ─────────────────────────────────────────────────

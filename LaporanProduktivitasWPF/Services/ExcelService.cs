@@ -271,6 +271,7 @@ namespace LaporanProduktivitasWPF.Services
                         else if (reader.LocalName == "c")
                         {
                             cellType = reader.GetAttribute("t") ?? "";
+                            cellValue = "";
                             string cellRef = reader.GetAttribute("r") ?? "";
                             int colFromRef = GetColumnIndexFromRef(cellRef);
                             while (currentColIdx < colFromRef)
@@ -294,6 +295,17 @@ namespace LaporanProduktivitasWPF.Services
                             currentRow.Add(finalVal);
                             currentColIdx++;
                         }
+                        else if (reader.LocalName == "t" && cellType == "inlineStr")
+                        {
+                            // Inline strings (umum dari Google Sheets/LibreOffice) tidak
+                            // memiliki elemen <v>. Beberapa rich-text cell memiliki beberapa <t>.
+                            cellValue += reader.ReadElementContentAsString();
+                        }
+                    }
+                    else if (reader.NodeType == XmlNodeType.EndElement && reader.LocalName == "c" && cellType == "inlineStr")
+                    {
+                        currentRow.Add(cellValue);
+                        currentColIdx++;
                     }
                     else if (reader.NodeType == XmlNodeType.EndElement && reader.LocalName == "row")
                     {
@@ -405,16 +417,16 @@ namespace LaporanProduktivitasWPF.Services
                 sw.WriteLine("NO,NMPG,NOINV,KDPRC,USID,Count JMDOS,Sum of NETTO");
                 foreach (var item in items)
                 {
-                    sw.WriteLine(string.Format("\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",{5},{6:F2}",
-                        item.No,
-                        (item.NMPG ?? "").Replace("\"", "\"\""),
-                        (item.NOINV ?? "").Replace("\"", "\"\""),
-                        item.KDPRC,
-                        item.USID,
+                    sw.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4},{5},{6:F2}",
+                        CsvField(item.No.ToString(CultureInfo.InvariantCulture)),
+                        CsvField(item.NMPG),
+                        CsvField(item.NOINV),
+                        CsvField(item.KDPRC),
+                        CsvField(item.USID),
                         item.CountJMDOS,
                         item.SumNetto));
                 }
-                sw.WriteLine(string.Format("\"-\",\"TOTAL\",\"{0} Nota\",\"-\",\"-\",{1},{2:F2}", totalNota, countJmdos, sumNetto));
+                sw.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4},{5},{6:F2}", CsvField("-"), CsvField("TOTAL"), CsvField(totalNota + " Nota"), CsvField("-"), CsvField("-"), countJmdos, sumNetto));
             }
         }
 
@@ -438,7 +450,320 @@ namespace LaporanProduktivitasWPF.Services
 
         private static string CsvField(string value)
         {
-            return "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
+            string safeValue = value ?? string.Empty;
+            if (safeValue.Length > 0 && "=+-@".IndexOf(safeValue[0]) >= 0)
+                safeValue = "'" + safeValue;
+            return "\"" + safeValue.Replace("\"", "\"\"") + "\"";
+        }
+
+        private static string EscapeXml(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            return text.Replace("&", "&amp;")
+                       .Replace("<", "&lt;")
+                       .Replace(">", "&gt;")
+                       .Replace("\"", "&quot;")
+                       .Replace("'", "&apos;");
+        }
+
+        /// <summary>
+        /// Mengekspor Ringkasan Performa Tim Fakturis langsung ke format file Excel (.xlsx) resmi.
+        /// Kompatibel 100% dengan semua versi Microsoft Excel, Google Sheets, dan LibreOffice.
+        /// </summary>
+        public static void ExportRingkasanFakturisToExcel(
+            string targetPath,
+            string monthKey,
+            IEnumerable<AdminInvoiceMetric> metrics,
+            int totalNotaTim)
+        {
+            var metricList = metrics != null ? metrics.ToList() : new List<AdminInvoiceMetric>();
+            string mUpper = string.IsNullOrWhiteSpace(monthKey) ? "SEMUA BULAN" : monthKey.Trim().ToUpperInvariant();
+
+            int sumNota = metricList.Sum(m => m.TotalNota);
+            int sumSalah = metricList.Sum(m => m.TotalSalah);
+            double totalErrorPct = totalNotaTim > 0 ? ((double)sumSalah / totalNotaTim) * 100.0 : 0.0;
+            double sumAvgPerDay = metricList.Sum(m => m.AverageNotaPerDay);
+            double sumKontribusi = metricList.Sum(m => m.ContributionPercentage);
+
+            if (File.Exists(targetPath))
+            {
+                try { File.Delete(targetPath); } catch { }
+            }
+
+            using (var fs = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var zip = new ZipArchive(fs, ZipArchiveMode.Create))
+            {
+                // 1. [Content_Types].xml
+                var ctEntry = zip.CreateEntry("[Content_Types].xml");
+                using (var sw = new StreamWriter(ctEntry.Open(), Encoding.UTF8))
+                {
+                    sw.Write("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" +
+                             "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">\n" +
+                             "  <Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>\n" +
+                             "  <Default Extension=\"xml\" ContentType=\"application/xml\"/>\n" +
+                             "  <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>\n" +
+                             "  <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>\n" +
+                             "  <Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>\n" +
+                             "</Types>");
+                }
+
+                // 2. _rels/.rels
+                var relsEntry = zip.CreateEntry("_rels/.rels");
+                using (var sw = new StreamWriter(relsEntry.Open(), Encoding.UTF8))
+                {
+                    sw.Write("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" +
+                             "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n" +
+                             "  <Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>\n" +
+                             "</Relationships>");
+                }
+
+                // 3. xl/_rels/workbook.xml.rels
+                var wbRelsEntry = zip.CreateEntry("xl/_rels/workbook.xml.rels");
+                using (var sw = new StreamWriter(wbRelsEntry.Open(), Encoding.UTF8))
+                {
+                    sw.Write("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" +
+                             "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n" +
+                             "  <Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>\n" +
+                             "  <Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>\n" +
+                             "</Relationships>");
+                }
+
+                // 4. xl/workbook.xml
+                var wbEntry = zip.CreateEntry("xl/workbook.xml");
+                using (var sw = new StreamWriter(wbEntry.Open(), Encoding.UTF8))
+                {
+                    sw.Write("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" +
+                             "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">\n" +
+                             "  <sheets>\n" +
+                             "    <sheet name=\"REKAP INVOICE ADMIN\" sheetId=\"1\" r:id=\"rId1\"/>\n" +
+                             "  </sheets>\n" +
+                             "</workbook>");
+                }
+
+                // 5. xl/styles.xml (Definisi Font, Fill, Border, dan Alignment)
+                var stylesEntry = zip.CreateEntry("xl/styles.xml");
+                using (var sw = new StreamWriter(stylesEntry.Open(), Encoding.UTF8))
+                {
+                    sw.Write("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" +
+                             "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">\n" +
+                             "  <fonts count=\"3\">\n" +
+                             "    <font><name val=\"Calibri\"/><sz val=\"11\"/></font>\n" +
+                             "    <font><b/><name val=\"Calibri\"/><sz val=\"14\"/></font>\n" +
+                             "    <font><b/><name val=\"Calibri\"/><sz val=\"11\"/></font>\n" +
+                             "  </fonts>\n" +
+                             "  <fills count=\"4\">\n" +
+                             "    <fill><patternFill patternType=\"none\"/></fill>\n" +
+                             "    <fill><patternFill patternType=\"gray125\"/></fill>\n" +
+                             "    <fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFD9E1F2\"/></patternFill></fill>\n" +
+                             "    <fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFF2F2F2\"/></patternFill></fill>\n" +
+                             "  </fills>\n" +
+                             "  <borders count=\"3\">\n" +
+                             "    <border><left/><right/><top/><bottom/><diagonal/></border>\n" +
+                             "    <border>\n" +
+                             "      <left style=\"thin\"><color auto=\"1\"/></left>\n" +
+                             "      <right style=\"thin\"><color auto=\"1\"/></right>\n" +
+                             "      <top style=\"thin\"><color auto=\"1\"/></top>\n" +
+                             "      <bottom style=\"thin\"><color auto=\"1\"/></bottom>\n" +
+                             "      <diagonal/>\n" +
+                             "    </border>\n" +
+                             "    <border>\n" +
+                             "      <left style=\"thin\"><color auto=\"1\"/></left>\n" +
+                             "      <right style=\"thin\"><color auto=\"1\"/></right>\n" +
+                             "      <top style=\"thin\"><color auto=\"1\"/></top>\n" +
+                             "      <bottom style=\"double\"><color auto=\"1\"/></bottom>\n" +
+                             "      <diagonal/>\n" +
+                             "    </border>\n" +
+                             "  </borders>\n" +
+                             "  <cellStyleXfs count=\"1\">\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/>\n" +
+                             "  </cellStyleXfs>\n" +
+                             "  <cellXfs count=\"10\">\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\"/>\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"2\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\"/>\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"2\" fillId=\"2\" borderId=\"1\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\">\n" +
+                             "      <alignment horizontal=\"center\" vertical=\"center\" wrapText=\"1\"/>\n" +
+                             "    </xf>\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\">\n" +
+                             "      <alignment horizontal=\"center\" vertical=\"center\"/>\n" +
+                             "    </xf>\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\">\n" +
+                             "      <alignment horizontal=\"left\" vertical=\"center\"/>\n" +
+                             "    </xf>\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"1\" xfId=\"0\" applyBorder=\"1\" applyAlignment=\"1\">\n" +
+                             "      <alignment horizontal=\"right\" vertical=\"center\"/>\n" +
+                             "    </xf>\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"2\" fillId=\"3\" borderId=\"2\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\">\n" +
+                             "      <alignment horizontal=\"center\" vertical=\"center\"/>\n" +
+                             "    </xf>\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"2\" fillId=\"3\" borderId=\"2\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\">\n" +
+                             "      <alignment horizontal=\"left\" vertical=\"center\"/>\n" +
+                             "    </xf>\n" +
+                             "    <xf numFmtId=\"0\" fontId=\"2\" fillId=\"3\" borderId=\"2\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\">\n" +
+                             "      <alignment horizontal=\"right\" vertical=\"center\"/>\n" +
+                             "    </xf>\n" +
+                             "  </cellXfs>\n" +
+                             "</styleSheet>");
+                }
+
+                // 6. xl/worksheets/sheet1.xml
+                var wsEntry = zip.CreateEntry("xl/worksheets/sheet1.xml");
+                using (var sw = new StreamWriter(wsEntry.Open(), Encoding.UTF8))
+                {
+                    sw.WriteLine("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+                    sw.WriteLine("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">");
+                    sw.WriteLine("  <cols>");
+                    sw.WriteLine("    <col min=\"1\" max=\"1\" width=\"6\" customWidth=\"1\"/>");
+                    sw.WriteLine("    <col min=\"2\" max=\"2\" width=\"24\" customWidth=\"1\"/>");
+                    sw.WriteLine("    <col min=\"3\" max=\"3\" width=\"16\" customWidth=\"1\"/>");
+                    sw.WriteLine("    <col min=\"4\" max=\"4\" width=\"16\" customWidth=\"1\"/>");
+                    sw.WriteLine("    <col min=\"5\" max=\"5\" width=\"26\" customWidth=\"1\"/>");
+                    sw.WriteLine("    <col min=\"6\" max=\"6\" width=\"30\" customWidth=\"1\"/>");
+                    sw.WriteLine("    <col min=\"7\" max=\"7\" width=\"28\" customWidth=\"1\"/>");
+                    sw.WriteLine("  </cols>");
+                    sw.WriteLine("  <sheetData>");
+
+                    int rowIdx = 1;
+
+                    // Row 1: Title
+                    sw.WriteLine(string.Format("    <row r=\"{0}\"><c r=\"A{0}\" s=\"1\" t=\"inlineStr\"><is><t>{1}</t></is></c></row>",
+                        rowIdx++, EscapeXml("REKAP INVOICE ADMIN")));
+
+                    // Row 2: Bulan
+                    sw.WriteLine(string.Format("    <row r=\"{0}\"><c r=\"A{0}\" s=\"2\" t=\"inlineStr\"><is><t>Bulan :</t></is></c><c r=\"B{0}\" t=\"inlineStr\"><is><t>{1}</t></is></c></row>",
+                        rowIdx++, EscapeXml(mUpper)));
+
+                    // Row 3: Total Nota Tim
+                    sw.WriteLine(string.Format("    <row r=\"{0}\"><c r=\"A{0}\" s=\"2\" t=\"inlineStr\"><is><t>Total Nota Tim :</t></is></c><c r=\"B{0}\"><v>{1}</v></c></row>",
+                        rowIdx++, totalNotaTim));
+
+                    // Row 4: Waktu Export
+                    sw.WriteLine(string.Format("    <row r=\"{0}\"><c r=\"A{0}\" s=\"2\" t=\"inlineStr\"><is><t>Tanggal Export :</t></is></c><c r=\"B{0}\" t=\"inlineStr\"><is><t>{1}</t></is></c></row>",
+                        rowIdx++, DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")));
+
+                    // Row 5: Spasi
+                    sw.WriteLine(string.Format("    <row r=\"{0}\"/>", rowIdx++));
+
+                    // Row 6: Header Tabel dengan garis border dan background biru muda (s="3")
+                    string[] headers = {
+                        "NO", "USER FAKTURIS", "TOTAL NOTA", "TOTAL SALAH",
+                        "ERROR / TOTAL TIM (%)", "RATA-RATA NOTA / HARI KERJA", "RATA-RATA INPUT NOTA / TOTAL NOTA (%)"
+                    };
+                    string[] colLetters = { "A", "B", "C", "D", "E", "F", "G" };
+
+                    var sbH = new StringBuilder(string.Format("    <row r=\"{0}\" ht=\"28\" customHeight=\"1\">", rowIdx));
+                    for (int i = 0; i < headers.Length; i++)
+                    {
+                        sbH.Append(string.Format("<c r=\"{0}{1}\" s=\"3\" t=\"inlineStr\"><is><t>{2}</t></is></c>",
+                            colLetters[i], rowIdx, EscapeXml(headers[i])));
+                    }
+                    sbH.Append("</row>");
+                    sw.WriteLine(sbH.ToString());
+                    rowIdx++;
+
+                    // Baris Data Per User dengan garis border tipis (s="4" center, s="5" left, s="6" right)
+                    int no = 1;
+                    foreach (var m in metricList)
+                    {
+                        var sbRow = new StringBuilder(string.Format("    <row r=\"{0}\">", rowIdx));
+                        sbRow.Append(string.Format("<c r=\"A{0}\" s=\"4\"><v>{1}</v></c>", rowIdx, no));
+                        sbRow.Append(string.Format("<c r=\"B{0}\" s=\"5\" t=\"inlineStr\"><is><t>{1}</t></is></c>", rowIdx, EscapeXml(m.User)));
+                        sbRow.Append(string.Format("<c r=\"C{0}\" s=\"6\"><v>{1}</v></c>", rowIdx, m.TotalNota));
+                        sbRow.Append(string.Format("<c r=\"D{0}\" s=\"6\"><v>{1}</v></c>", rowIdx, m.TotalSalah));
+                        sbRow.Append(string.Format(CultureInfo.InvariantCulture, "<c r=\"E{0}\" s=\"6\" t=\"inlineStr\"><is><t>{1:F1}%</t></is></c>", rowIdx, m.SalahPercentage));
+                        sbRow.Append(string.Format(CultureInfo.InvariantCulture, "<c r=\"F{0}\" s=\"6\" t=\"inlineStr\"><is><t>{1:F1} nota</t></is></c>", rowIdx, m.AverageNotaPerDay));
+                        sbRow.Append(string.Format(CultureInfo.InvariantCulture, "<c r=\"G{0}\" s=\"6\" t=\"inlineStr\"><is><t>{1:F1}%</t></is></c>", rowIdx, m.ContributionPercentage));
+                        sbRow.Append("</row>");
+                        sw.WriteLine(sbRow.ToString());
+
+                        rowIdx++;
+                        no++;
+                    }
+
+                    // Baris Total / Footer dengan garis border dobel di bawah (s="7" center, s="8" left, s="9" right)
+                    var sbTot = new StringBuilder(string.Format("    <row r=\"{0}\">", rowIdx));
+                    sbTot.Append(string.Format("<c r=\"A{0}\" s=\"7\" t=\"inlineStr\"><is><t>-</t></is></c>", rowIdx));
+                    sbTot.Append(string.Format("<c r=\"B{0}\" s=\"8\" t=\"inlineStr\"><is><t>TOTAL KESELURUHAN</t></is></c>", rowIdx));
+                    sbTot.Append(string.Format("<c r=\"C{0}\" s=\"9\"><v>{1}</v></c>", rowIdx, sumNota));
+                    sbTot.Append(string.Format("<c r=\"D{0}\" s=\"9\"><v>{1}</v></c>", rowIdx, sumSalah));
+                    sbTot.Append(string.Format(CultureInfo.InvariantCulture, "<c r=\"E{0}\" s=\"9\" t=\"inlineStr\"><is><t>{1:F1}%</t></is></c>", rowIdx, totalErrorPct));
+                    sbTot.Append(string.Format(CultureInfo.InvariantCulture, "<c r=\"F{0}\" s=\"9\" t=\"inlineStr\"><is><t>{1:F1} nota</t></is></c>", rowIdx, sumAvgPerDay));
+                    sbTot.Append(string.Format(CultureInfo.InvariantCulture, "<c r=\"G{0}\" s=\"9\" t=\"inlineStr\"><is><t>{1:F1}%</t></is></c>", rowIdx, sumKontribusi));
+                    sbTot.Append("</row>");
+                    sw.WriteLine(sbTot.ToString());
+
+                    sw.WriteLine("  </sheetData>");
+                    sw.WriteLine("</worksheet>");
+                }
+            }
+        }
+
+        public static void ExportRingkasanFakturisToCsv(
+            string targetPath,
+            string monthKey,
+            IEnumerable<AdminInvoiceMetric> metrics,
+            int totalNotaTim)
+        {
+            var metricList = metrics != null ? metrics.ToList() : new List<AdminInvoiceMetric>();
+            string mUpper = string.IsNullOrWhiteSpace(monthKey) ? "SEMUA BULAN" : monthKey.Trim().ToUpperInvariant();
+
+            int sumNota = metricList.Sum(m => m.TotalNota);
+            int sumSalah = metricList.Sum(m => m.TotalSalah);
+            double totalErrorPct = totalNotaTim > 0 ? ((double)sumSalah / totalNotaTim) * 100.0 : 0.0;
+            double sumAvgPerDay = metricList.Sum(m => m.AverageNotaPerDay);
+            double sumKontribusi = metricList.Sum(m => m.ContributionPercentage);
+
+            // Gunakan UTF-8 BOM agar Excel mengenali encoding secara akurat
+            using (var sw = new StreamWriter(targetPath, false, new UTF8Encoding(true)))
+            {
+                // Menambahkan instruksi 'sep=,' agar Excel otomatis memecah kolom dengan koma di semua versi & locale Windows
+                sw.WriteLine("sep=,");
+
+                // Header Ringkasan
+                sw.WriteLine(CsvField("REKAP INVOICE ADMIN"));
+                sw.WriteLine(string.Format("{0},{1}", CsvField("Bulan :"), CsvField(mUpper)));
+                sw.WriteLine(string.Format("{0},{1}", CsvField("Total Nota Tim :"), totalNotaTim.ToString(CultureInfo.InvariantCulture)));
+                sw.WriteLine(string.Format("{0},{1}", CsvField("Tanggal Export :"), CsvField(DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"))));
+                sw.WriteLine("");
+
+                // Header Tabel
+                sw.WriteLine(string.Format("{0},{1},{2},{3},{4},{5},{6}",
+                    CsvField("NO"),
+                    CsvField("USER FAKTURIS"),
+                    CsvField("TOTAL NOTA"),
+                    CsvField("TOTAL SALAH"),
+                    CsvField("ERROR / TOTAL TIM (%)"),
+                    CsvField("RATA-RATA NOTA / HARI KERJA"),
+                    CsvField("RATA-RATA INPUT NOTA / TOTAL NOTA (%)")
+                ));
+
+                // Baris Data
+                int no = 1;
+                foreach (var item in metricList)
+                {
+                    sw.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4},{5},{6}",
+                        no,
+                        CsvField(item.User),
+                        item.TotalNota,
+                        item.TotalSalah,
+                        CsvField(string.Format(CultureInfo.InvariantCulture, "{0:F1}%", item.SalahPercentage)),
+                        CsvField(string.Format(CultureInfo.InvariantCulture, "{0:F1} nota", item.AverageNotaPerDay)),
+                        CsvField(string.Format(CultureInfo.InvariantCulture, "{0:F1}%", item.ContributionPercentage))
+                    ));
+                    no++;
+                }
+
+                // Baris Total / Footer Tabel
+                sw.WriteLine(string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4},{5},{6}",
+                    CsvField("-"),
+                    CsvField("TOTAL KESELURUHAN"),
+                    sumNota,
+                    sumSalah,
+                    CsvField(string.Format(CultureInfo.InvariantCulture, "{0:F1}%", totalErrorPct)),
+                    CsvField(string.Format(CultureInfo.InvariantCulture, "{0:F1} nota", sumAvgPerDay)),
+                    CsvField(string.Format(CultureInfo.InvariantCulture, "{0:F1}%", sumKontribusi))
+                ));
+            }
         }
 
         public static void ExportEvaluasiToCsv(

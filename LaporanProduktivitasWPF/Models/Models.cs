@@ -44,6 +44,8 @@ namespace LaporanProduktivitasWPF.Models
     public class EvaluasiItem : INotifyPropertyChanged
     {
         public string Key { get; set; }
+        // Versi dari PostgreSQL untuk mendeteksi perubahan oleh sesi pengguna lain.
+        public DateTime? ManualLogUpdatedAt { get; set; }
         public int No { get; set; }
         public string Tanggal { get; set; }
         public string User { get; set; }

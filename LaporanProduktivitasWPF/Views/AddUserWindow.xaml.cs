@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Linq;
 using LaporanProduktivitasWPF.Services;
 
 namespace LaporanProduktivitasWPF.Views
@@ -27,6 +28,20 @@ namespace LaporanProduktivitasWPF.Views
             if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
             {
                 TxtError.Text = "Username dan Password tidak boleh kosong.";
+                TxtError.Visibility = Visibility.Visible;
+                return;
+            }
+
+            if (user.Length > 50 || user.Any(c => !char.IsLetterOrDigit(c) && c != '_' && c != '-'))
+            {
+                TxtError.Text = "Username maksimal 50 karakter dan hanya boleh huruf, angka, _ atau -.";
+                TxtError.Visibility = Visibility.Visible;
+                return;
+            }
+
+            if (pass.Length < 8)
+            {
+                TxtError.Text = "Password minimal 8 karakter.";
                 TxtError.Visibility = Visibility.Visible;
                 return;
             }

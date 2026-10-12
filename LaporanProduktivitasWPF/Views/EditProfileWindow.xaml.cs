@@ -26,6 +26,13 @@ namespace LaporanProduktivitasWPF.Views
                 return;
             }
 
+            if (pass.Length < 8)
+            {
+                TxtError.Text = "Password minimal 8 karakter.";
+                TxtError.Visibility = Visibility.Visible;
+                return;
+            }
+
             bool ok = await DatabaseService.UpdateUserPasswordAsync(_username, pass);
             if (ok)
             {

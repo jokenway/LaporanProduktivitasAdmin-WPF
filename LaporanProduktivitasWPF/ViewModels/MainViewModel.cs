@@ -99,6 +99,7 @@ namespace LaporanProduktivitasWPF.ViewModels
         private List<RawRow> _currentRows = new List<RawRow>();
         private Dictionary<string, ExcelSheetData> _sheetsData = new Dictionary<string, ExcelSheetData>(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, EvaluasiItem> _manualLogs = new Dictionary<string, EvaluasiItem>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _dirtyManualLogKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly SemaphoreSlim _manualSaveLock = new SemaphoreSlim(1, 1);
         private CancellationTokenSource _manualSaveDebounce;
         private bool _suppressManualSave;
@@ -352,7 +353,11 @@ namespace LaporanProduktivitasWPF.ViewModels
                 );
                 if (result == MessageBoxResult.Yes)
                 {
-                    await DatabaseService.DeleteMonthAsync(key);
+                    if (!await DatabaseService.DeleteMonthAsync(key))
+                    {
+                        MessageBox.Show("Data bulan tidak dihapus. Periksa koneksi database lalu coba lagi.", "Hapus Gagal", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
                     if (string.Equals(_activeMonthKey, key, StringComparison.OrdinalIgnoreCase))
                     {
                         ActiveMonthKey = "";
@@ -397,8 +402,8 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private async void InitializeAsync()
         {
-            // Load manual logs dari database
-            _manualLogs = await DatabaseService.LoadManualLogsAsync();
+            // Log manual dimuat setelah pengguna memilih bulan agar tidak tercampur lintas bulan.
+            _manualLogs = new Dictionary<string, EvaluasiItem>(StringComparer.OrdinalIgnoreCase);
 
             // Load daftar bulan dari database (tidak auto-load data bulan manapun)
             await RefreshSavedMonthsAsync();
@@ -416,16 +421,15 @@ namespace LaporanProduktivitasWPF.ViewModels
 
                 string savedTab = ActiveTab;
 
-                // 1. Muat ulang log manual dan daftar bulan dari DB secara paralel di background thread (Sangat Cepat ~20ms)
-                var logsTask = DatabaseService.LoadManualLogsAsync();
+                // 1. Muat daftar bulan lebih dulu; log manual bergantung pada bulan aktif.
                 var monthsTask = DatabaseService.GetSavedMonthsAsync();
 
-                await Task.WhenAll(logsTask, monthsTask);
-                _manualLogs = await logsTask;
                 LoadingProgress = 50;
 
                 var metas = (await monthsTask)
-                    .OrderBy(m => Array.IndexOf(ExcelService.INDONESIAN_MONTHS, m.Key))
+                    .OrderBy(m => m.Year)
+                    .ThenBy(m => Array.IndexOf(ExcelService.INDONESIAN_MONTHS, m.MonthName))
+                    .ThenBy(m => m.Key)
                     .ToList();
                 foreach (var m in metas)
                     m.IsActiveMonth = string.Equals(m.Key, _activeMonthKey, StringComparison.OrdinalIgnoreCase);
@@ -433,6 +437,9 @@ namespace LaporanProduktivitasWPF.ViewModels
                 SavedMonths.Clear();
                 foreach (var m in metas) SavedMonths.Add(m);
                 LoadingProgress = 75;
+
+                if (!string.IsNullOrEmpty(_activeMonthKey))
+                    _manualLogs = await DatabaseService.LoadManualLogsAsync(_activeMonthKey);
 
                 // 2. Jika data bulan sudah di memori, cukup hitung ulang tanpa unduh ulang ribuan baris Excel dari database
                 if (_currentRows != null && _currentRows.Count > 0)
@@ -483,7 +490,9 @@ namespace LaporanProduktivitasWPF.ViewModels
         {
             var metas = await DatabaseService.GetSavedMonthsAsync();
             metas = metas
-                .OrderBy(m => Array.IndexOf(ExcelService.INDONESIAN_MONTHS, m.Key))
+                .OrderBy(m => m.Year)
+                .ThenBy(m => Array.IndexOf(ExcelService.INDONESIAN_MONTHS, m.MonthName))
+                .ThenBy(m => m.Key)
                 .ToList();
             foreach (var m in metas)
                 m.IsActiveMonth = string.Equals(m.Key, _activeMonthKey, StringComparison.OrdinalIgnoreCase);
@@ -527,22 +536,33 @@ namespace LaporanProduktivitasWPF.ViewModels
                 var parsed = await Task.Run(() => ExcelService.ParseExcelFile(filePath));
                 LoadingProgress = 40;
 
-                string monthKey = ExcelService.ExtractMonthFromFileName(origFileName);
-                if (string.IsNullOrEmpty(monthKey))
-                    monthKey = Path.GetFileNameWithoutExtension(origFileName).ToUpperInvariant();
+                string monthName = ExcelService.ExtractMonthFromFileName(origFileName);
 
                 string bestSheet = PickBestSheet(parsed.SheetNames);
                 List<RawRow> rows = bestSheet != "" && parsed.Sheets.ContainsKey(bestSheet)
                     ? parsed.Sheets[bestSheet].Rows
                     : new List<RawRow>();
-                int totalRows = rows.Count;
+                var parsedDates = rows.Select(r => EvaluasiEngine.TryParseDate(r.Get("TGBON")) ?? EvaluasiEngine.TryParseDate(r.Get("Tanggal")))
+                    .Where(d => d.HasValue).Select(d => d.Value).ToList();
+                var dominantDate = parsedDates.GroupBy(d => new { d.Year, d.Month })
+                    .OrderByDescending(g => g.Count()).Select(g => g.First()).FirstOrDefault();
+                if (string.IsNullOrEmpty(monthName) && dominantDate != default)
+                    monthName = ExcelService.INDONESIAN_MONTHS[dominantDate.Month - 1];
+                if (string.IsNullOrEmpty(monthName))
+                    throw new InvalidOperationException("Bulan tidak dapat dikenali. Cantumkan nama bulan pada nama file atau kolom tanggal pada sheet utama.");
+                int year = parsedDates.Select(d => d.Year)
+                    .GroupBy(y => y).OrderByDescending(g => g.Count()).Select(g => g.Key).FirstOrDefault();
+                if (year == 0) year = DateTime.Now.Year;
+                int monthNumber = Array.IndexOf(ExcelService.INDONESIAN_MONTHS, monthName) + 1;
+                string monthKey = string.Format("{0:D4}-{1:D2}", year, monthNumber);
+                int totalRows = parsed.Sheets.Values.Sum(sheet => sheet.Rows.Count);
                 LoadingProgress = 55;
 
                 // Simpan ke PostgreSQL di background thread
                 StatusMessage = "Menyimpan " + totalRows.ToString("N0") + " baris ke database...";
-                string labelDisplay = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthKey.ToLowerInvariant());
-                await Task.Run(() => DatabaseService.SaveMonthDataAsync(monthKey, labelDisplay, origFileName, bestSheet, totalRows,
-                    _currentUser?.Username ?? "", rows));
+                string labelDisplay = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(monthName.ToLowerInvariant()) + " " + year;
+                await Task.Run(() => DatabaseService.SaveMonthDataAsync(monthKey, labelDisplay, origFileName, bestSheet, monthName, year, totalRows,
+                    _currentUser?.Username ?? "", parsed.Sheets.Values));
                 LoadingProgress = 85;
 
                 // Muat ke memori
@@ -605,13 +625,16 @@ namespace LaporanProduktivitasWPF.ViewModels
                 }
 
                 FileName = meta.FileName ?? monthKey;
+                var sheetNames = await DatabaseService.GetMonthSheetNamesAsync(monthKey);
                 SheetNames.Clear();
-                SheetNames.Add(sheetName);
+                foreach (var name in sheetNames) SheetNames.Add(name);
                 ActiveMonthKey = monthKey;
 
                 _sheetsData = sheetsData;
                 _activeSheet = sheetName;
                 OnPropertyChanged("ActiveSheet");
+                _manualLogs = await DatabaseService.LoadManualLogsAsync(monthKey);
+                _dirtyManualLogKeys.Clear();
                 LoadingProgress = 85;
 
                 // Hitung kalkulasi tabel di background thread
@@ -666,6 +689,12 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private async Task OnSheetChangedAsync()
         {
+            if (!string.IsNullOrEmpty(_activeMonthKey) && !string.IsNullOrEmpty(_activeSheet) && !_sheetsData.ContainsKey(_activeSheet))
+            {
+                var rows = await DatabaseService.LoadMonthRowsAsync(_activeMonthKey, _activeSheet);
+                var headers = rows.Count > 0 ? new List<string>(rows[0].Cells.Keys) : new List<string>();
+                _sheetsData[_activeSheet] = new ExcelSheetData { SheetName = _activeSheet, Headers = headers, Rows = rows };
+            }
             if (string.IsNullOrEmpty(_activeSheet) || !_sheetsData.ContainsKey(_activeSheet))
             {
                 _currentRows = new List<RawRow>();
@@ -698,21 +727,22 @@ namespace LaporanProduktivitasWPF.ViewModels
             OnPropertyChanged("EvalSelectedUser");
             OnPropertyChanged("EvalSearchQuery");
 
-            // Compute heavy pivot & evaluations off the UI thread
-            await Task.Run(() =>
+            // Hitung data besar di worker thread; ObservableCollection hanya disentuh
+            // setelah await kembali ke UI thread.
+            var computed = await Task.Run(() =>
             {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    RefreshExactPivot();
-                    RefreshEvaluasi();
-                    RefreshDashboard();
-                });
+                var exact = ExactPivotEngine.BuildExactPivot(_currentRows, "ALL", "ALL", "ALL", "");
+                var evaluasi = EvaluasiEngine.BuildDailyEvaluation(_currentRows, _manualLogs, "ALL", "ALL", "", "ADMIN_INVOICE");
+                return (exact, evaluasi);
             });
+            RefreshExactPivot(computed.exact);
+            RefreshEvaluasi(computed.evaluasi);
+            RefreshDashboard(computed.exact);
         }
 
-        private void RefreshExactPivot()
+        private void RefreshExactPivot(ExactPivotResult precomputed = null)
         {
-            var res = ExactPivotEngine.BuildExactPivot(
+            var res = precomputed ?? ExactPivotEngine.BuildExactPivot(
                 _currentRows,
                 SelectedDate,
                 SelectedUser,
@@ -746,29 +776,26 @@ namespace LaporanProduktivitasWPF.ViewModels
                 }
             }
 
-            // Filtered grand total = sum of all user filtered nota
-            int filteredGrandTotal = filteredNotaPerUser.Values.Sum(s => s.Count);
-
             var summaryList = filteredNotaPerUser
                 .OrderByDescending(kv => kv.Value.Count)
                 .Select(kv =>
                 {
+                    int filteredGrandTotal = filteredNotaPerUser.Values.Sum(s => s.Count);
                     int cnt = kv.Value.Count;
-                    double pct = filteredGrandTotal > 0 ? Math.Round((double)cnt / filteredGrandTotal * 100.0, 1) : 0.0;
                     return new UserNotaSummary
                     {
                         User = kv.Key,
                         TotalNota = cnt,
-                        ContributionPct = pct
+                        ContributionPct = filteredGrandTotal > 0 ? Math.Round((double)cnt / filteredGrandTotal * 100.0, 1) : 0.0
                     };
                 })
                 .ToList();
             ExactUserSummaryItems = new ObservableCollection<UserNotaSummary>(summaryList);
         }
 
-        private void RefreshDashboard()
+        private void RefreshDashboard(ExactPivotResult precomputed = null)
         {
-            var res = ExactPivotEngine.BuildExactPivot(_currentRows, "ALL", "ALL", "ALL", "");
+            var res = precomputed ?? ExactPivotEngine.BuildExactPivot(_currentRows, "ALL", "ALL", "ALL", "");
             GrandTotalCalculated = res.GrandTotalNotaKeseluruhan;
             UniqueUsersCount = res.AvailableUsers.Count;
             UniqueDatesCount = res.AvailableDates.Count;
@@ -817,11 +844,11 @@ namespace LaporanProduktivitasWPF.ViewModels
             }
         }
 
-        private void RefreshEvaluasi()
+        private void RefreshEvaluasi(EvaluasiResult precomputed = null)
         {
             // Always filter to ADMIN_INVOICE users only (AKBAR, DIDIN, JOE, RONI, NOVIANI, STEVI, GINA)
             // EvalSelectedUser can still narrow within that group
-            var res = EvaluasiEngine.BuildDailyEvaluation(
+            var res = precomputed ?? EvaluasiEngine.BuildDailyEvaluation(
                 _currentRows,
                 _manualLogs,
                 EvalSelectedDate,
@@ -889,13 +916,14 @@ namespace LaporanProduktivitasWPF.ViewModels
                 return;
 
             // 2. Staff hanya boleh mengedit baris miliknya sendiri.
-            if (!_currentUser.IsSuperUser)
+            if (!_currentUser.CanEditAllEvaluation)
             {
                 if (!string.Equals(item.User, _currentUser.Username, StringComparison.OrdinalIgnoreCase))
                     return;
             }
 
             _manualLogs[item.Key] = item;
+            _dirtyManualLogKeys.Add(item.Key);
             if (_suppressManualSave) return;
             SaveManualLogsToStorage();
             RecalculateEvaluasiSummary();
@@ -938,7 +966,7 @@ namespace LaporanProduktivitasWPF.ViewModels
                 foreach (var it in EvaluasiItems)
                 {
                     // Staff hanya boleh mengisi barisnya sendiri.
-                    if (!_currentUser.IsSuperUser &&
+                    if (!_currentUser.CanEditAllEvaluation &&
                         !string.Equals(it.User, _currentUser.Username, StringComparison.OrdinalIgnoreCase))
                         continue;
 
@@ -947,6 +975,7 @@ namespace LaporanProduktivitasWPF.ViewModels
                         it.JamDatang = "08:00";
                         it.JamPulang = "17:00";
                         _manualLogs[it.Key] = it;
+                        _dirtyManualLogKeys.Add(it.Key);
                         count++;
                     }
                 }
@@ -973,8 +1002,20 @@ namespace LaporanProduktivitasWPF.ViewModels
             {
                 try
                 {
-                    await DatabaseService.DeleteAllManualLogsAsync();
-                    _manualLogs.Clear();
+                    var pendingSave = _manualSaveDebounce;
+                    _manualSaveDebounce = null;
+                    pendingSave?.Cancel();
+                    await _manualSaveLock.WaitAsync();
+                    try
+                    {
+                        await DatabaseService.DeleteAllManualLogsAsync(_activeMonthKey);
+                        _manualLogs.Clear();
+                        _dirtyManualLogKeys.Clear();
+                    }
+                    finally
+                    {
+                        _manualSaveLock.Release();
+                    }
                     RefreshEvaluasi();
                     StatusMessage = "✅ Seluruh input manual berhasil dihapus.";
                 }
@@ -1028,18 +1069,42 @@ namespace LaporanProduktivitasWPF.ViewModels
             try
             {
                 string who = _currentUser?.Username ?? "";
-                var snapshot = _manualLogs.Values.ToList();
-                await DatabaseService.SaveAllManualLogsAsync(snapshot, who);
+                var dirtyKeys = _dirtyManualLogKeys.ToList();
+                if (dirtyKeys.Count == 0) return;
+                _dirtyManualLogKeys.Clear();
+                var snapshot = dirtyKeys.Where(key => _manualLogs.ContainsKey(key))
+                    .Select(key => CloneManualLog(_manualLogs[key])).ToList();
+                var savedVersions = await DatabaseService.SaveAllManualLogsAsync(snapshot, who, _activeMonthKey);
+                foreach (var entry in savedVersions)
+                {
+                    if (_manualLogs.TryGetValue(entry.Key, out var original))
+                        original.ManualLogUpdatedAt = entry.Value;
+                }
                 StatusMessage = "Input tersimpan ke database (" + DateTime.Now.ToString("HH:mm:ss") + ")";
             }
             catch (Exception ex)
             {
+                foreach (var item in _manualLogs.Values)
+                    _dirtyManualLogKeys.Add(item.Key);
                 StatusMessage = "Gagal menyimpan: " + ex.Message;
             }
             finally
             {
                 _manualSaveLock.Release();
             }
+        }
+
+        private static EvaluasiItem CloneManualLog(EvaluasiItem item)
+        {
+            return new EvaluasiItem
+            {
+                Key = item.Key,
+                ManualLogUpdatedAt = item.ManualLogUpdatedAt,
+                NotaSalah = item.NotaSalah,
+                JamDatang = item.JamDatang,
+                JamPulang = item.JamPulang,
+                Keterangan = item.Keterangan
+            };
         }
 
         private static void UpdateFilterOptions(ObservableCollection<string> target, IList<string> options)
@@ -1098,28 +1163,39 @@ namespace LaporanProduktivitasWPF.ViewModels
 
         private void ExportEvaluasi()
         {
-            if (EvaluasiItems.Count == 0 && (_currentRows == null || _currentRows.Count == 0))
+            if (AdminInvoiceMetrics == null || AdminInvoiceMetrics.Count == 0)
             {
-                MessageBox.Show("Tidak ada data evaluasi untuk diekspor.", "Peringatan", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Tidak ada data rekap invoice admin untuk diekspor. Pilih bulan terlebih dahulu.", "Peringatan", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             var sfd = new SaveFileDialog
             {
-                Title = "Simpan Laporan Rekap Kinerja & Absensi",
-                Filter = "File CSV (*.csv)|*.csv",
-                FileName = string.Format("REKAP_ADMIN_NOTA_{0}.csv", string.IsNullOrEmpty(ActiveMonthKey) ? "EVALUASI" : ActiveMonthKey.ToUpperInvariant())
+                Title = "Simpan Rekap Invoice Admin",
+                Filter = "File Excel (*.xlsx)|*.xlsx|File CSV (*.csv)|*.csv",
+                DefaultExt = "xlsx",
+                FileName = "REKAP INVOICE ADMIN.xlsx"
             };
 
             if (sfd.ShowDialog() == true)
             {
                 try
                 {
-                    ExcelService.ExportEvaluasiToCsv(sfd.FileName, ActiveMonthKey, _currentRows, _manualLogs, EvaluasiItems, EvalTotalNota, EvalTotalSalah, EvalOverallAkurasi, EvalTotalJamText);
-                    MessageBox.Show("Laporan evaluasi berhasil diekspor ke: " + sfd.FileName, "Sukses", MessageBoxButton.OK, MessageBoxImage.Information);
+                    string ext = Path.GetExtension(sfd.FileName);
+                    if (string.Equals(ext, ".csv", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ExcelService.ExportRingkasanFakturisToCsv(sfd.FileName, ActiveMonthKey, AdminInvoiceMetrics, AdminInvoiceTotalNota);
+                    }
+                    else
+                    {
+                        ExcelService.ExportRingkasanFakturisToExcel(sfd.FileName, ActiveMonthKey, AdminInvoiceMetrics, AdminInvoiceTotalNota);
+                    }
+
+                    MessageBox.Show("Rekap invoice admin berhasil diekspor ke:\n" + sfd.FileName, "Sukses", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
+                    AppLogger.LogError("Export ringkasan fakturis", ex);
                     MessageBox.Show("Gagal ekspor: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
