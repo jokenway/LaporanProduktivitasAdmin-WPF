@@ -9,16 +9,17 @@ Aplikasi Desktop Native Windows berperforma tinggi berbasis **C#, .NET 8, dan WP
 Cukup **Double-Click** file launcher utama:
 * **`jalankan-aplikasi-wpf.bat`**
 
-Atau jalankan langsung file executable tunggal (*standalone single-file zero-dependency*):
+Launcher akan membuat aplikasi jika belum tersedia. Setelah proses berhasil, file executable tunggal (*standalone single-file*) berada di:
 * `LaporanProduktivitasWPF\bin\Release\standalone\LaporanProduktivitasAdmin.exe`
+
+Import workbook Excel Anda melalui aplikasi; file data contoh tidak disertakan dalam folder proyek ini.
 
 ---
 
 ## ✨ Fitur Utama
 
 1. **📊 Dashboard Produktivitas**:
-   - Ringkasan KPI: Grand Total Nota, Top Performer Admin, Rata-rata per Admin & Hari.
-   - Grafik batang interaktif 10 Admin dengan volume nota tertinggi.
+   - Halaman sambutan sebagai titik awal navigasi aplikasi.
 
 2. **📋 Tabel Pivot Detail (Exact Pivot Excel)**:
    - Dimensi: Row (`NMPG`), Column (`TGBON`), Nilai: `Count of NOINV`, `Sum of JMDOS`, `Sum of NETTO`.
@@ -49,10 +50,8 @@ Atau jalankan langsung file executable tunggal (*standalone single-file zero-dep
 ## 🛠️ Struktur Direktori Proyek
 
 ```
-Laporan Produktifitas Admin/
+Project Final 88/
 ├── jalankan-aplikasi-wpf.bat             # Launcher utama desktop Windows
-├── Contoh tabel.xlsx                     # Dataset contoh demo
-├── JULI - CLOSING.xlsx                   # Dataset produksi (53.796 baris)
 ├── README.md                             # Dokumentasi proyek
 └── LaporanProduktivitasWPF/              # Source code C# / .NET 8 WPF
     ├── LaporanProduktivitasWPF.csproj    # File project modern .NET 8 SDK

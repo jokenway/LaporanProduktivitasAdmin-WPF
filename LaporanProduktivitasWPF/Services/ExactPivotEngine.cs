@@ -54,14 +54,10 @@ namespace LaporanProduktivitasWPF.Services
             // Pre-scan for all options and grand totals
             foreach (var r in rowList)
             {
-                string d = r.Get("TGBON");
-                if (string.IsNullOrEmpty(d)) d = r.Get("Tanggal");
-                string u = r.Get("USID");
-                if (string.IsNullOrEmpty(u)) u = r.Get("User");
-                string jb = r.Get("JENIS_B");
-                if (string.IsNullOrEmpty(jb)) jb = r.Get("JENIS");
-                string noinv = r.Get("NOINV");
-                if (string.IsNullOrEmpty(noinv)) noinv = r.Get("No Invoice");
+                string d = GetField(r, "TGBON", "Tanggal");
+                string u = GetField(r, "USID", "User");
+                string jb = GetField(r, "JENIS_B", "JENIS");
+                string noinv = GetField(r, "NOINV", "No Invoice");
 
                 double netto = ParseDouble(r.Get("NETTO"));
 
@@ -101,12 +97,9 @@ namespace LaporanProduktivitasWPF.Services
 
             var filtered = rowList.Where(r =>
             {
-                string d = r.Get("TGBON");
-                if (string.IsNullOrEmpty(d)) d = r.Get("Tanggal");
-                string u = r.Get("USID");
-                if (string.IsNullOrEmpty(u)) u = r.Get("User");
-                string jb = r.Get("JENIS_B");
-                if (string.IsNullOrEmpty(jb)) jb = r.Get("JENIS");
+                string d = GetField(r, "TGBON", "Tanggal");
+                string u = GetField(r, "USID", "User");
+                string jb = GetField(r, "JENIS_B", "JENIS");
 
                 if (!string.IsNullOrEmpty(selectedDate) && selectedDate != "ALL" && !string.Equals(d, selectedDate, StringComparison.OrdinalIgnoreCase))
                     return false;
@@ -120,9 +113,9 @@ namespace LaporanProduktivitasWPF.Services
                 if (!string.IsNullOrEmpty(q))
                 {
                     string nmpg = r.Get("NMPG").ToLowerInvariant();
-                    string noinv = r.Get("NOINV").ToLowerInvariant();
+                    string noinv = GetField(r, "NOINV", "No Invoice").ToLowerInvariant();
                     string kdprc = r.Get("KDPRC").ToLowerInvariant();
-                    string usid = r.Get("USID").ToLowerInvariant();
+                    string usid = u.ToLowerInvariant();
                     if (!nmpg.Contains(q) && !noinv.Contains(q) && !kdprc.Contains(q) && !usid.Contains(q))
                         return false;
                 }
@@ -137,14 +130,14 @@ namespace LaporanProduktivitasWPF.Services
             {
                 string nmpg = r.Get("NMPG");
                 if (string.IsNullOrEmpty(nmpg)) nmpg = "(Tanpa Sales)";
-                string noinv = r.Get("NOINV");
+                string noinv = GetField(r, "NOINV", "No Invoice");
                 if (string.IsNullOrEmpty(noinv)) noinv = "(Tanpa NoInv)";
                 string kdprc = r.Get("KDPRC");
                 if (string.IsNullOrEmpty(kdprc)) kdprc = "-";
-                string usid = r.Get("USID");
+                string usid = GetField(r, "USID", "User");
                 if (string.IsNullOrEmpty(usid)) usid = "-";
-                string tgbon = r.Get("TGBON");
-                string jb = r.Get("JENIS_B");
+                string tgbon = GetField(r, "TGBON", "Tanggal");
+                string jb = GetField(r, "JENIS_B", "JENIS");
 
                 // Tanggal dan jenis barang adalah dimensi pivot. Tanpa keduanya,
                 // transaksi berbeda bisa tergabung ke item yang sama.
@@ -189,6 +182,12 @@ namespace LaporanProduktivitasWPF.Services
             result.TotalNota = sortedItems.Count;
 
             return result;
+        }
+
+        private static string GetField(RawRow row, string name, string alias)
+        {
+            string value = row.Get(name);
+            return string.IsNullOrEmpty(value) ? row.Get(alias) : value;
         }
 
         private static double ParseDouble(string val)

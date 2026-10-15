@@ -138,6 +138,7 @@ namespace LaporanProduktivitasWPF.Models
             }
 
             string s = input.Trim().Replace('.', ':');
+            if (s.Any(ch => (ch < '0' || ch > '9') && ch != ':')) return false;
 
             // Format jam:menit standar (cth: "8:0", "08:00", "17:30")
             if (TimeSpan.TryParseExact(s, new[] { "h\\:m", "hh\\:mm", "h\\:mm", "hh\\:m" }, CultureInfo.InvariantCulture, out TimeSpan ts))
@@ -156,8 +157,9 @@ namespace LaporanProduktivitasWPF.Models
             }
 
             // Input hanya angka (cth: "8" -> "08:00", "17" -> "17:00", "830" -> "08:30", "1730" -> "17:30")
-            string digits = new string(s.Where(char.IsDigit).ToArray());
-            if (digits.Length > 0 && digits.Length <= 4)
+            // Fallback hanya untuk angka murni; jangan menghapus karakter input rusak.
+            string digits = s;
+            if (digits.Length > 0 && digits.Length <= 4 && digits.All(ch => ch >= '0' && ch <= '9'))
             {
                 if (digits.Length <= 2)
                 {

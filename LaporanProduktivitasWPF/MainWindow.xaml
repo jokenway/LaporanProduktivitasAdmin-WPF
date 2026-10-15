@@ -91,7 +91,7 @@
                     </Button>
 
                     <!-- Tambah User -->
-                    <Button Content="Tambah User" Command="{Binding AddUserCommand}"
+                    <Button Content="Tambah Userw" Command="{Binding AddUserCommand}"
                             Height="28" Padding="10,0" FontSize="11" FontWeight="SemiBold" Margin="0,0,8,0"
                             Background="#059669" Foreground="White" BorderThickness="0" Cursor="Hand">
                         <Button.Style>
@@ -247,14 +247,123 @@
         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="20">
             <Grid>
                 <!-- 1. DASHBOARD VIEW -->
-                <Grid Visibility="{Binding IsDashboardActive, Converter={StaticResource BoolToVis}}">
-                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
-                               FontSize="30" FontWeight="SemiBold" Foreground="{StaticResource TextLightBrush}">
-                        <Run Text="Selamat datang, " />
-                        <Run Text="{Binding CurrentUser.Username}" />
-                        <Run Text="!" />
-                    </TextBlock>
-                </Grid>
+                <StackPanel Visibility="{Binding IsDashboardActive, Converter={StaticResource BoolToVis}}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="760">
+                    <Border Background="{StaticResource CardDarkBrush}" BorderBrush="{StaticResource BorderDarkBrush}"
+                            BorderThickness="1" CornerRadius="20" Padding="48,40">
+                        <StackPanel HorizontalAlignment="Center">
+                            <Border Background="#E0F2FE" CornerRadius="18" Width="72" Height="72"
+                                    HorizontalAlignment="Center" Margin="0,0,0,20">
+                                <TextBlock Text="👋" FontSize="36" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock FontSize="30" FontWeight="ExtraBold"
+                                       Foreground="{StaticResource TextLightBrush}" HorizontalAlignment="Center"
+                                       Margin="0,0,0,8">
+                                <Run Text="Selamat datang, " />
+                                <Run Text="{Binding CurrentUser.Username}" />
+                                <Run Text="!" />
+                            </TextBlock>
+                            <TextBlock Text="di Laporan Produktivitas Admin" FontSize="16"
+                                       Foreground="{StaticResource BrandPrimaryBrush}" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,0,0,16" />
+                            <TextBlock Text="Pilih menu di atas untuk mulai mengelola data, melihat tabel pivot, atau memantau produktivitas admin."
+                                       FontSize="13" Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap" TextAlignment="Center" MaxWidth="520" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Visibility="Collapsed">
+                    <!-- Hero Banner -->
+                    <Border Background="#FFFFFF" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1" CornerRadius="16" Padding="24" Margin="0,0,0,20">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <Border Background="#E0F2FE" CornerRadius="10" Padding="8,3" HorizontalAlignment="Left" Margin="0,0,0,8">
+                                    <TextBlock Text="● RINGKASAN PRODUKTIVITAS" Foreground="#0369A1" FontSize="11" FontWeight="Bold" />
+                                </Border>
+                                <TextBlock Text="Pantau Ritme Kerja Tim Fakturis" FontSize="26" FontWeight="ExtraBold" Foreground="{StaticResource TextLightBrush}" Margin="0,0,0,6" />
+                                <TextBlock Text="Gambaran cepat performa volume nota, tingkat akurasi, dan tren harian admin dari data Excel aktif." 
+                                           FontSize="13" Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+                                <Border BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1,0,0,0" Padding="16,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="PERIODE TANGGAL" FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                        <TextBlock Text="{Binding LatestDate, StringFormat='{}s/d {0}'}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Top 4 KPI Cards -->
+                    <UniformGrid Columns="4" Margin="0,0,0,20">
+                        <!-- Card 1: Grand Total -->
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,10,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="GRAND TOTAL NOTA" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding GrandTotalCalculated, StringFormat='{}{0:N0}'}" FontSize="28" FontWeight="ExtraBold" Foreground="{StaticResource BrandPrimaryBrush}" Margin="0,6,0,2" />
+                                <TextBlock Text="Total nomor invoice unik" FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 2: Top Performer -->
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,10,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="TOP ADMIN PERFORMER" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding TopUserName}" FontSize="22" FontWeight="ExtraBold" Foreground="{StaticResource AmberBrush}" Margin="0,6,0,2" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding TopUserTotal, StringFormat='{}{0:N0} invoice'}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 3: Jumlah Admin -->
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="16" Margin="0,0,10,0" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="JUMLAH ADMIN AKTIF" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding UniqueUsersCount, StringFormat='{}{0} Admin'}" FontSize="28" FontWeight="ExtraBold" Foreground="{StaticResource BrandSecondaryBrush}" Margin="0,6,0,2" />
+                                <TextBlock Text="{Binding AvgPerUser, StringFormat='{}Rata-rata: {0} nota/admin'}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 4: Total Hari Kerja -->
+                        <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="16" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="TOTAL HARI / PERIODE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding UniqueDatesCount, StringFormat='{}{0} Hari'}" FontSize="28" FontWeight="ExtraBold" Foreground="{StaticResource EmeraldBrush}" Margin="0,6,0,2" />
+                                <TextBlock Text="{Binding AvgPerDate, StringFormat='{}Rata-rata: {0} nota/hari'}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- Top 10 Admin Volume Graph -->
+                    <Border Background="{StaticResource CardDarkBrush}" CornerRadius="12" Padding="20" BorderBrush="{StaticResource BorderDarkBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="10 Admin Teratas Berdasarkan Jumlah Nota" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextLightBrush}" Margin="0,0,0,16" />
+                            <ItemsControl ItemsSource="{Binding TopUsersChart}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="110" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Label}" FontWeight="Bold" VerticalAlignment="Center" Foreground="{StaticResource TextLightBrush}" />
+                                            <ProgressBar Grid.Column="1" Value="{Binding Percentage}" Maximum="100" Height="16" VerticalAlignment="Center" 
+                                                         Foreground="{StaticResource BrandPrimaryBrush}" Background="#F1F5F9" BorderThickness="0" Margin="0,0,12,0" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Value, StringFormat='{}{0:N0} Nota'}" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
                 <!-- 2. IMPORT & MANAJEMEN DATA BULAN VIEW -->
                 <StackPanel Visibility="{Binding IsImportActive, Converter={StaticResource BoolToVis}}" MaxWidth="700" Margin="0,20">
@@ -734,4 +843,3 @@
       <views:LoginWindow x:Name="LoginView" Visibility="Collapsed" />
     </Grid>
 </Window>
-

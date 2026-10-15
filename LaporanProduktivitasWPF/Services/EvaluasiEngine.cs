@@ -98,6 +98,12 @@ namespace LaporanProduktivitasWPF.Services
             return dt.HasValue && dt.Value.DayOfWeek == DayOfWeek.Sunday;
         }
 
+        private static bool IsOutsidePeriod(DateTime? date, DateTime? period)
+        {
+            return date.HasValue && period.HasValue &&
+                (date.Value.Year != period.Value.Year || date.Value.Month != period.Value.Month);
+        }
+
         public static EvaluasiResult BuildDailyEvaluation(
             IEnumerable<RawRow> rows,
             Dictionary<string, EvaluasiItem> manualLogs,
@@ -113,7 +119,7 @@ namespace LaporanProduktivitasWPF.Services
             var dateSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var userSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // 1. Tentukan bulan dominan (target month) dari data baris Excel
+            // 1. Tentukan periode dominan berdasarkan tahun dan bulan data Excel.
             var rowDates = new List<DateTime>();
             foreach (var r in rows)
             {
@@ -126,10 +132,10 @@ namespace LaporanProduktivitasWPF.Services
                 }
             }
 
-            int? targetMonth = null;
+            DateTime? targetPeriod = null;
             if (rowDates.Count > 0)
             {
-                targetMonth = rowDates.GroupBy(dt => dt.Month)
+                targetPeriod = rowDates.GroupBy(dt => new DateTime(dt.Year, dt.Month, 1))
                                       .OrderByDescending(g => g.Count())
                                       .First().Key;
             }
@@ -157,9 +163,9 @@ namespace LaporanProduktivitasWPF.Services
                 // Hilangkan tanggal yang jatuh pada HARI MINGGU
                 if (IsSunday(d)) continue;
 
-                // Abaikan tanggal jika bulannya tidak sesuai dengan bulan target file
+                // Abaikan tanggal di luar periode target file.
                 var parsedD = TryParseDate(d);
-                if (targetMonth.HasValue && parsedD.HasValue && parsedD.Value.Month != targetMonth.Value)
+                if (IsOutsidePeriod(parsedD, targetPeriod))
                     continue;
 
                 dateSet.Add(d);
@@ -179,7 +185,7 @@ namespace LaporanProduktivitasWPF.Services
                 }
             }
 
-            // 3. Tambahkan tanggal dari manualLogs HANYA jika sesuai dengan bulan target dan BUKAN HARI MINGGU
+            // 3. Tambahkan tanggal manualLogs hanya dalam periode target dan bukan hari Minggu.
             if (manualLogs != null)
             {
                 foreach (var k in manualLogs.Keys)
@@ -191,7 +197,7 @@ namespace LaporanProduktivitasWPF.Services
                         if (IsSunday(d)) continue;
 
                         var parsedD = TryParseDate(d);
-                        if (targetMonth.HasValue && parsedD.HasValue && parsedD.Value.Month != targetMonth.Value)
+                        if (IsOutsidePeriod(parsedD, targetPeriod))
                             continue;
 
                         dateSet.Add(d);
